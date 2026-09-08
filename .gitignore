@@ -20,3 +20,6 @@ geode-sdk-clone/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Source du logo : seul le PNG converti est empaquete par Geode
+resources/*.webp
