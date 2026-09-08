@@ -20,6 +20,7 @@ protected:
     geode::ScrollLayer* m_scrollLayer = nullptr;
     geode::TextInput* m_searchInput = nullptr;
     cocos2d::CCMenu* m_tabMenu = nullptr;
+    std::string m_pendingSearch;
     cocos2d::extension::CCScale9Sprite* m_loadingBg = nullptr;
     cocos2d::CCLabelBMFont* m_statusLabel = nullptr;
     cocos2d::CCLabelBMFont* m_pageLabel = nullptr;
@@ -33,6 +34,10 @@ protected:
 
     void onBack(cocos2d::CCObject*);
     void keyBackClicked() override;
+    void keyDown(cocos2d::enumKeyCodes key, double repeatDelay) override;
+    void onExit() override;
+    void onSearchDebounced(float dt);
+    void updateTabVisuals();
     void onTab(cocos2d::CCObject*);
     void onRefresh(cocos2d::CCObject*);
     void onFilters(cocos2d::CCObject*);

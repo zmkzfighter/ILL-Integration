@@ -93,17 +93,21 @@ bool ImpossibleLevelsLayer::init() {
         spr->setScale(0.6f);
         auto btn = CCMenuItemSpriteExtra::create(spr, this, menu_selector(ImpossibleLevelsLayer::onTab));
         btn->setTag(static_cast<int>(t.cat));
+        spr->setCascadeColorEnabled(true);
         m_tabMenu->addChild(btn);
     }
     m_tabMenu->updateLayout();
+    updateTabVisuals();
 
     // --- Recherche + filtres.
     m_searchInput = TextInput::create(searchWidth, "Rechercher un niveau ou createur...");
     m_searchInput->setScale(0.8f);
+    // Chaque frappe reconstruisait 25 cellules et relancait autant de
+    // requetes de vignettes : on attend une courte pause avant de filtrer.
     m_searchInput->setCallback([this](std::string const& text) {
-        m_searchQuery = text;
-        m_page = 0;
-        rebuildList();
+        m_pendingSearch = text;
+        this->unschedule(schedule_selector(ImpossibleLevelsLayer::onSearchDebounced));
+        this->scheduleOnce(schedule_selector(ImpossibleLevelsLayer::onSearchDebounced), 0.25f);
     });
     this->addChildAtPosition(m_searchInput, Anchor::Top, ccp(-20.f, -80.f), false);
     m_searchInput->setZOrder(5);
@@ -211,15 +215,21 @@ void ImpossibleLevelsLayer::reloadData(bool forceNetwork) {
         m_statusLabel->setVisible(true);
     }
 
-    ill::ImpossibleLevelsAPI::get()->fetchLevels(forceNetwork, [this](std::vector<ill::ImpossibleLevel> const& levels, bool success, std::string error) {
+    // Le layer est retenu par Ref : la reponse peut arriver apres que
+    // l'utilisateur a quitte l'ecran -- l'API renvoie ~1,7 Mo et reloadData
+    // part des init(). Sans ca, `this` etait deja detruit.
+    geode::Ref<ImpossibleLevelsLayer> self = this;
+    ill::ImpossibleLevelsAPI::get()->fetchLevels(forceNetwork, [self](std::vector<ill::ImpossibleLevel> const& levels, bool success, std::string error) {
+        auto* me = self.data();
+        if (!me) return;
         if (!success && levels.empty()) {
-            if (m_statusLabel) {
-                m_statusLabel->setString(fmt::format("Echec du chargement :\n{}", error).c_str());
-                m_statusLabel->setVisible(true);
+            if (me->m_statusLabel) {
+                me->m_statusLabel->setString(fmt::format("Echec du chargement :\n{}", error).c_str());
+                me->m_statusLabel->setVisible(true);
             }
             return;
         }
-        rebuildList();
+        me->rebuildList();
     });
 }
 
@@ -237,8 +247,10 @@ void ImpossibleLevelsLayer::rebuildList() {
 
     float width = m_scrollLayer->getContentSize().width;
     float y = 0.f;
-    float rowHeight = 42.f;
-    float featuredHeight = 60.f;
+    // Hauteurs relevees depuis l'ajout des vignettes : une image 16:9 de
+    // 58 px de large fait 33 px de haut, illisible dans une ligne de 42.
+    float rowHeight = Mod::get()->getSettingValue<bool>("show-thumbnails") ? 50.f : 42.f;
+    float featuredHeight = Mod::get()->getSettingValue<bool>("show-thumbnails") ? 68.f : 60.f;
 
     std::vector<ill::ImpossibleLevel> mainList = ill::ImpossibleLevelsAPI::get()->filter(
         m_category, m_searchQuery, m_minRank, m_maxRank, m_sort
@@ -348,9 +360,51 @@ void ImpossibleLevelsLayer::keyBackClicked() {
     this->onBack(nullptr);
 }
 
+void ImpossibleLevelsLayer::onExit() {
+    // GameLevelManager garde un pointeur nu vers ce layer le temps de charger
+    // un niveau. Quitter l'ecran avant la reponse du serveur GD laissait le
+    // jeu appeler dans de la memoire liberee.
+    if (auto glm = GameLevelManager::sharedState()) {
+        if (glm->m_levelManagerDelegate == this) {
+            glm->m_levelManagerDelegate = nullptr;
+        }
+    }
+    CCLayer::onExit();
+}
+
+// Fleches gauche / droite pour changer de page.
+void ImpossibleLevelsLayer::keyDown(cocos2d::enumKeyCodes key, double repeatDelay) {
+    if (key == cocos2d::enumKeyCodes::KEY_Left)  { this->onPrevPage(nullptr); return; }
+    if (key == cocos2d::enumKeyCodes::KEY_Right) { this->onNextPage(nullptr); return; }
+    CCLayer::keyDown(key, repeatDelay);
+}
+
 void ImpossibleLevelsLayer::onTab(cocos2d::CCObject* sender) {
     auto btn = static_cast<CCMenuItemSpriteExtra*>(sender);
     m_category = static_cast<ill::ListCategory>(btn->getTag());
+    m_page = 0;
+    updateTabVisuals();
+    rebuildList();
+}
+
+// Rien ne distinguait l'onglet selectionne. On grise et on retrecit les
+// inactifs : deux signaux, pour ne pas dependre du seul cascade de couleur.
+void ImpossibleLevelsLayer::updateTabVisuals() {
+    if (!m_tabMenu) return;
+    for (auto* child : CCArrayExt<CCNode*>(m_tabMenu->getChildren())) {
+        bool active = child->getTag() == static_cast<int>(m_category);
+        child->setScale(active ? 1.f : 0.88f);
+        if (auto item = typeinfo_cast<CCMenuItemSpriteExtra*>(child)) {
+            item->setCascadeColorEnabled(true);
+            item->setColor(active ? ccColor3B{ 255, 255, 255 } : ccColor3B{ 125, 125, 135 });
+        }
+    }
+    m_tabMenu->updateLayout();
+}
+
+void ImpossibleLevelsLayer::onSearchDebounced(float) {
+    if (m_searchQuery == m_pendingSearch) return;
+    m_searchQuery = m_pendingSearch;
     m_page = 0;
     rebuildList();
 }
