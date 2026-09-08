@@ -8,11 +8,11 @@ ILLLevelCell* ILLLevelCell::create(
     float width,
     float height,
     std::function<void(ill::ImpossibleLevel const&)> onPlay,
-    std::function<void(ill::ImpossibleLevel const&)> onRecords
+    std::function<void(ill::ImpossibleLevel const&)> onShowcase
 ) {
     auto ret = new ILLLevelCell();
     ret->m_onPlay = onPlay;
-    ret->m_onRecords = onRecords;
+    ret->m_onShowcase = onShowcase;
     if (ret->init(level, featured, width, height)) {
         ret->autorelease();
         return ret;
@@ -75,9 +75,10 @@ bool ILLLevelCell::init(ill::ImpossibleLevel const& level, bool featured, float 
 
     // --- Créateur + infos ---------------------------------------------
     std::string infoStr = fmt::format("par {}", level.creator);
-    if (!level.difficulty.empty()) infoStr += fmt::format("  |  {}", level.difficulty);
-    if (!level.length.empty()) infoStr += fmt::format("  |  {}", level.length);
-    infoStr += fmt::format("  |  {:.0f} FPS", level.fps);
+    if (auto len = level.lengthString(); !len.empty()) infoStr += fmt::format("  |  {}", len);
+    if (level.fps > 0.0) infoStr += fmt::format("  |  {:.0f} FPS", level.fps);
+    infoStr += fmt::format("  |  {:.1f} pts", level.rating);
+    if (!level.cleared) infoStr += "  |  jamais battu";
 
     auto infoLabel = CCLabelBMFont::create(infoStr.c_str(), "chatFont.fnt");
     infoLabel->setScale(0.4f);
@@ -87,19 +88,36 @@ bool ILLLevelCell::init(ill::ImpossibleLevel const& level, bool featured, float 
     addChild(infoLabel, 11);
 
     // --- Bouton Jouer ----------------------------------------------------
-    auto playSpr = ButtonSprite::create("Jouer", "goldFont.fnt", "GJ_button_01.png", 0.8f);
+    // ~1 niveau sur 100 a `levelId: "N/A"` cote API : injouable, on le montre.
+    bool playable = level.levelID > 0;
+    auto playSpr = ButtonSprite::create(
+        playable ? "Jouer" : "Pas d'ID", "goldFont.fnt",
+        playable ? "GJ_button_01.png" : "GJ_button_04.png", 0.8f);
     playSpr->setScale(featured ? 0.75f : 0.6f);
     auto playBtn = CCMenuItemSpriteExtra::create(playSpr, this, menu_selector(ILLLevelCell::onPlay));
     playBtn->setPosition({ width - pad - playBtn->getScaledContentSize().width / 2.f, height * 0.5f });
     menu->addChild(playBtn);
 
-    // --- Bouton copier l'ID (petit bouton discret) -----------------------
-    auto copySpr = CCSprite::createWithSpriteFrameName("GJ_copyBtn_001.png");
-    if (copySpr) {
-        copySpr->setScale(0.6f);
-        auto copyBtn = CCMenuItemSpriteExtra::create(copySpr, this, menu_selector(ILLLevelCell::onCopyId));
-        copyBtn->setPosition({ width - pad - playBtn->getScaledContentSize().width - 18.f, height * 0.5f });
-        menu->addChild(copyBtn);
+    // --- Boutons secondaires : copier l'ID, puis showcase ----------------
+    float sideX = width - pad - playBtn->getScaledContentSize().width - 18.f;
+
+    if (playable) {
+        if (auto copySpr = CCSprite::createWithSpriteFrameName("GJ_copyBtn_001.png")) {
+            copySpr->setScale(0.6f);
+            auto copyBtn = CCMenuItemSpriteExtra::create(copySpr, this, menu_selector(ILLLevelCell::onCopyId));
+            copyBtn->setPosition({ sideX, height * 0.5f });
+            menu->addChild(copyBtn);
+            sideX -= 26.f;
+        }
+    }
+
+    if (!m_level.videoUrl.empty()) {
+        if (auto vidSpr = CCSprite::createWithSpriteFrameName("gj_watchVideoBtn_001.png")) {
+            vidSpr->setScale(0.55f);
+            auto vidBtn = CCMenuItemSpriteExtra::create(vidSpr, this, menu_selector(ILLLevelCell::onShowcase));
+            vidBtn->setPosition({ sideX, height * 0.5f });
+            menu->addChild(vidBtn);
+        }
     }
 
     return true;
@@ -107,14 +125,14 @@ bool ILLLevelCell::init(ill::ImpossibleLevel const& level, bool featured, float 
 
 void ILLLevelCell::onPlay(cocos2d::CCObject*) {
     if (m_level.levelID <= 0) {
-        Notification::create("ID de niveau introuvable pour ce niveau.", NotificationIcon::Error)->show();
+        Notification::create("L'API ne fournit pas d'ID GD pour ce niveau.", NotificationIcon::Error)->show();
         return;
     }
     if (m_onPlay) m_onPlay(m_level);
 }
 
-void ILLLevelCell::onRecords(cocos2d::CCObject*) {
-    if (m_onRecords) m_onRecords(m_level);
+void ILLLevelCell::onShowcase(cocos2d::CCObject*) {
+    if (m_onShowcase) m_onShowcase(m_level);
 }
 
 void ILLLevelCell::onCopyId(cocos2d::CCObject*) {

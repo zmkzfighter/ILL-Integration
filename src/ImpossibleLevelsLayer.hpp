@@ -34,7 +34,7 @@ protected:
     void onOpenWebsite(cocos2d::CCObject*);
 
     void requestPlayLevel(ill::ImpossibleLevel const& level);
-    void requestOpenRecords(ill::ImpossibleLevel const& level);
+    void requestOpenShowcase(ill::ImpossibleLevel const& level);
 
     // LevelManagerDelegate
     // NOTE: la signature exacte de LevelManagerDelegate a legerement varie

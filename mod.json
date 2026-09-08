@@ -28,21 +28,21 @@
 			"type": "string",
 			"default": "https://api.impossiblelevels.com/api"
 		},
-		"week-window-days": {
-			"name": "Fenetre 'Semaine' (jours)",
-			"description": "Nombre de jours utilises pour definir un niveau comme 'nouveau cette semaine'.",
+		"recent-count": {
+			"name": "Taille de l'onglet Nouveautes",
+			"description": "Nombre de derniers niveaux ajoutes a la liste affiches dans l'onglet Nouveautes. L'API n'expose aucune date d'ajout : c'est un nombre d'entrees, pas une duree.",
 			"type": "int",
-			"default": 7,
-			"min": 1,
-			"max": 31
+			"default": 50,
+			"min": 5,
+			"max": 500
 		},
-		"month-window-days": {
-			"name": "Fenetre 'Mois' (jours)",
-			"description": "Nombre de jours utilises pour definir un niveau comme 'nouveau ce mois-ci'.",
+		"max-rows": {
+			"name": "Cellules affichees au maximum",
+			"description": "La liste complete compte plus de 2000 niveaux : les construire toutes d'un coup fige le jeu. Au-dela de cette limite, affine avec la recherche ou le filtre de rang.",
 			"type": "int",
-			"default": 30,
-			"min": 1,
-			"max": 120
+			"default": 150,
+			"min": 25,
+			"max": 1000
 		},
 		"cache-minutes": {
 			"name": "Duree du cache (minutes)",

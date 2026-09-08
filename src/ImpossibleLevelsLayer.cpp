@@ -75,11 +75,10 @@ bool ImpossibleLevelsLayer::init() {
     struct TabDef { const char* label; ill::ListCategory cat; };
     std::vector<TabDef> tabs = {
         { "Tous", ill::ListCategory::All },
-        { "Cette semaine", ill::ListCategory::Week },
-        { "Ce mois-ci", ill::ListCategory::Month }
+        { "Nouveautes", ill::ListCategory::Recent }
     };
 
-    float tabX = -150.f;
+    float tabX = -75.f;
     for (auto& t : tabs) {
         auto spr = ButtonSprite::create(t.label, "bigFont.fnt", "GJ_button_02.png", 0.9f);
         spr->setScale(0.7f);
@@ -159,8 +158,8 @@ void ImpossibleLevelsLayer::rebuildList() {
         child->removeFromParent();
     }
 
-    int weekDays = Mod::get()->getSettingValue<int64_t>("week-window-days");
-    int monthDays = Mod::get()->getSettingValue<int64_t>("month-window-days");
+    int recentCount = static_cast<int>(Mod::get()->getSettingValue<int64_t>("recent-count"));
+    int maxRows = static_cast<int>(Mod::get()->getSettingValue<int64_t>("max-rows"));
 
     float width = m_scrollLayer->getContentSize().width;
     float y = 0.f;
@@ -171,44 +170,35 @@ void ImpossibleLevelsLayer::rebuildList() {
         m_category, m_searchQuery, m_minRank, m_maxRank
     );
 
-    // --- Sections "mises en avant" uniquement visibles sur l'onglet Tous,
-    //     et seulement si aucune recherche/filtre n'est actif (pour rester
-    //     lisible, comme un bandeau de mise en avant plutot qu'un doublon).
+    // La liste complete fait ~2100 niveaux : construire autant de cellules
+    // d'un coup fige le jeu. On plafonne le rendu et on l'annonce, la
+    // recherche et le filtre de rang servent a atteindre le reste.
+    size_t total = mainList.size();
+    bool truncated = maxRows > 0 && total > static_cast<size_t>(maxRows);
+    if (truncated) mainList.resize(static_cast<size_t>(maxRows));
+
+    // --- Bandeau "nouveautes" en tete de l'onglet Tous, seulement si aucune
+    //     recherche/filtre n'est actif.
     bool showFeatured = (m_category == ill::ListCategory::All) && m_searchQuery.empty() && m_maxRank == 0;
 
     std::vector<cocos2d::CCNode*> cellsBottomToTop;
 
     if (showFeatured) {
-        auto weekLevels = ill::ImpossibleLevelsAPI::get()->filter(ill::ListCategory::Week, "", 0, 0);
-        auto monthLevels = ill::ImpossibleLevelsAPI::get()->filter(ill::ListCategory::Month, "", 0, 0);
-
-        if (!monthLevels.empty()) {
-            auto header = CCLabelBMFont::create(fmt::format("Nouveautes du mois ({} jours)", monthDays).c_str(), "goldFont.fnt");
+        auto recent = ill::ImpossibleLevelsAPI::get()->filter(ill::ListCategory::Recent, "", 0, 0);
+        if (!recent.empty()) {
+            auto header = CCLabelBMFont::create(
+                fmt::format("Derniers ajouts a la liste ({})", recentCount).c_str(), "goldFont.fnt");
             header->setScale(0.5f);
             header->setAnchorPoint({ 0.f, 0.5f });
             cellsBottomToTop.push_back(header);
-            for (size_t i = 0; i < std::min<size_t>(5, monthLevels.size()); i++) {
+            for (size_t i = 0; i < std::min<size_t>(5, recent.size()); i++) {
                 cellsBottomToTop.push_back(ILLLevelCell::create(
-                    monthLevels[i], true, width, featuredHeight,
-                    [this](auto const& lvl) { requestPlayLevel(lvl); }
+                    recent[i], true, width, featuredHeight,
+                    [this](auto const& lvl) { requestPlayLevel(lvl); },
+                    [this](auto const& lvl) { requestOpenShowcase(lvl); }
                 ));
             }
-        }
 
-        if (!weekLevels.empty()) {
-            auto header = CCLabelBMFont::create(fmt::format("Nouveautes de la semaine ({} jours)", weekDays).c_str(), "goldFont.fnt");
-            header->setScale(0.5f);
-            header->setAnchorPoint({ 0.f, 0.5f });
-            cellsBottomToTop.push_back(header);
-            for (size_t i = 0; i < std::min<size_t>(5, weekLevels.size()); i++) {
-                cellsBottomToTop.push_back(ILLLevelCell::create(
-                    weekLevels[i], true, width, featuredHeight,
-                    [this](auto const& lvl) { requestPlayLevel(lvl); }
-                ));
-            }
-        }
-
-        if (!cellsBottomToTop.empty()) {
             auto sep = CCLabelBMFont::create("Liste complete", "goldFont.fnt");
             sep->setScale(0.5f);
             sep->setAnchorPoint({ 0.f, 0.5f });
@@ -220,8 +210,17 @@ void ImpossibleLevelsLayer::rebuildList() {
         cellsBottomToTop.push_back(ILLLevelCell::create(
             lvl, false, width, rowHeight,
             [this](auto const& l) { requestPlayLevel(l); },
-            [this](auto const& l) { requestOpenRecords(l); }
+            [this](auto const& l) { requestOpenShowcase(l); }
         ));
+    }
+
+    if (truncated) {
+        auto more = CCLabelBMFont::create(
+            fmt::format("{} premiers sur {} - affine la recherche ou le filtre de rang",
+                        maxRows, total).c_str(), "chatFont.fnt");
+        more->setScale(0.5f);
+        more->setAnchorPoint({ 0.f, 0.5f });
+        cellsBottomToTop.push_back(more);
     }
 
     // Place les elements de haut en bas dans le ScrollLayer (Y decroissant)
@@ -250,8 +249,8 @@ void ImpossibleLevelsLayer::rebuildList() {
     m_scrollLayer->scrollToTop();
 
     if (m_statusLabel) {
-        m_statusLabel->setVisible(mainList.empty() && cellsBottomToTop.empty());
-        if (mainList.empty()) m_statusLabel->setString("Aucun niveau ne correspond a ta recherche/tes filtres.");
+        m_statusLabel->setVisible(cellsBottomToTop.empty());
+        if (cellsBottomToTop.empty()) m_statusLabel->setString("Aucun niveau ne correspond a ta recherche/tes filtres.");
     }
 }
 
@@ -297,11 +296,12 @@ void ImpossibleLevelsLayer::requestPlayLevel(ill::ImpossibleLevel const& level) 
     glm->getOnlineLevels(searchObj);
 }
 
-void ImpossibleLevelsLayer::requestOpenRecords(ill::ImpossibleLevel const& level) {
-    if (!level.recordsUrl.empty()) {
-        geode::utils::web::openLinkInBrowser(level.recordsUrl);
+void ImpossibleLevelsLayer::requestOpenShowcase(ill::ImpossibleLevel const& level) {
+    // `showcaseLink` est renseigne pour 2274 des 2282 entrees de l'API.
+    if (!level.videoUrl.empty()) {
+        geode::utils::web::openLinkInBrowser(level.videoUrl);
     } else {
-        Notification::create("Aucun lien de records disponible pour ce niveau.", NotificationIcon::Info)->show();
+        Notification::create("Aucune video de showcase pour ce niveau.", NotificationIcon::Info)->show();
     }
 }
 

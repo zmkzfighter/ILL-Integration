@@ -108,42 +108,49 @@ namespace ill {
         }
     }
 
+    // Champs reels renvoyes par GET https://api.impossiblelevels.com/api/levels
+    // (verifie sur les 2282 entrees de la liste ILL) :
+    //   id, name, rating, fps, levelLength, levelId, uploader, showcaseLink,
+    //   thumbnailUrl, uncleared, datePublished, rank, visible, ...
+    // Les anciens noms devines (creator, video, createdAt...) n'existent pas :
+    // c'est ce qui laissait la liste sans createur ni date.
     ImpossibleLevel ImpossibleLevel::fromJson(matjson::Value const& j) {
         ImpossibleLevel lvl;
 
-        lvl.rank = static_cast<int>(tryKeysNum(j, {"rank", "placement", "position", "rank_position"}, 0));
+        lvl.listId  = static_cast<int>(tryKeysNum(j, {"id"}, 0));
+        lvl.rank    = static_cast<int>(tryKeysNum(j, {"rank"}, 0));
 
-        lvl.levelID = static_cast<int>(tryKeysNum(j, {
-            "levelID", "levelId", "level_id", "gdLevelId", "gd_id", "id_level", "levelid"
-        }, 0));
+        // `levelId` est une CHAINE, et vaut litteralement "N/A" pour les
+        // niveaux dont l'id GD est inconnu -> tryKeysNum renvoie 0 et la
+        // cellule desactivera le bouton Jouer.
+        lvl.levelID = static_cast<int>(tryKeysNum(j, {"levelId"}, 0));
 
-        lvl.name = tryKeysStr(j, {"name", "levelName", "level_name", "title"}, "Inconnu");
-        lvl.creator = tryKeysStr(j, {"creator", "creatorName", "creator_name", "author", "publisher"}, "Inconnu");
+        lvl.name    = tryKeysStr(j, {"name"}, "Inconnu");
+        lvl.creator = tryKeysStr(j, {"uploader"}, "Inconnu");
+        if (lvl.creator.empty() || lvl.creator == "N/A") lvl.creator = "Inconnu";
 
-        lvl.fps = tryKeysNum(j, {"fps", "frameRate", "frame_rate"}, 60.0);
+        lvl.fps           = tryKeysNum(j, {"fps"}, 0.0);
+        lvl.lengthSeconds = tryKeysNum(j, {"levelLength"}, 0.0);
+        lvl.rating        = tryKeysNum(j, {"rating"}, 0.0);
 
-        lvl.length = tryKeysStr(j, {"length", "duration", "levelLength"}, "");
-        lvl.difficulty = tryKeysStr(j, {"difficulty", "tier", "tierName", "difficultyName"}, "");
+        lvl.videoUrl     = tryKeysStr(j, {"showcaseLink"}, "");
+        lvl.thumbnailUrl = tryKeysStr(j, {"thumbnailUrl"}, "");
 
-        lvl.videoUrl = tryKeysStr(j, {"video", "videoUrl", "video_url", "showcase", "verification"}, "");
-        lvl.thumbnailUrl = tryKeysStr(j, {"thumbnail", "thumbnailUrl", "thumbnail_url", "image", "cover"}, "");
-        lvl.recordsUrl = tryKeysStr(j, {"records", "recordsUrl", "records_url", "leaderboard"}, "");
+        // `uncleared` = personne n'a fini le niveau. On stocke l'inverse.
+        lvl.cleared = !tryKeysBool(j, {"uncleared"}, false);
+        lvl.visible = tryKeysBool(j, {"visible"}, true);
 
-        lvl.verified = tryKeysBool(j, {"verified", "isVerified", "completed"}, false);
-
-        lvl.addedTimestamp = parseDateToEpoch(j, {
-            "createdAt", "created_at", "dateAdded", "date_added", "addedAt",
-            "added_at", "creationDate", "creation_date", "publishedAt"
-        });
+        // Date de sortie du niveau sur GD (PAS la date d'ajout a la liste,
+        // que l'API n'expose nulle part).
+        lvl.publishedTimestamp = parseDateToEpoch(j, {"datePublished"});
 
         return lvl;
     }
 
-    bool ImpossibleLevel::isNewerThan(int days) const {
-        if (addedTimestamp <= 0) return false;
-        long long now = static_cast<long long>(std::time(nullptr));
-        long long windowSeconds = static_cast<long long>(days) * 24 * 60 * 60;
-        return (now - addedTimestamp) <= windowSeconds && (now - addedTimestamp) >= 0;
+    std::string ImpossibleLevel::lengthString() const {
+        if (lengthSeconds <= 0.0) return "";
+        int total = static_cast<int>(lengthSeconds + 0.5);
+        return fmt::format("{}:{:02d}", total / 60, total % 60);
     }
 
     // ------------------------------------------------------------------
@@ -225,6 +232,7 @@ namespace ill {
 
             std::vector<ImpossibleLevel> parsed;
             parsed.reserve(arrPtr->size());
+            int hidden = 0;
             // matjson::Value expose directement begin()/end() sur les
             // elements d'un tableau. On passe par la plutot que par
             // asArray(), dont le Result contient une *reference*
@@ -232,8 +240,13 @@ namespace ill {
             // sur un type reference (contrainte default_initializable).
             // arrPtr a deja ete valide par isArray() plus haut.
             for (auto const& entry : *arrPtr) {
-                parsed.push_back(ImpossibleLevel::fromJson(entry));
+                auto lvl = ImpossibleLevel::fromJson(entry);
+                // ~200 entrees sur 2282 sont masquees cote site.
+                if (!lvl.visible) { hidden++; continue; }
+                parsed.push_back(std::move(lvl));
             }
+            log::info("[ImpossibleLevels] {} niveaux visibles ({} masques ignores)",
+                      parsed.size(), hidden);
 
             // Tri par rang croissant par défaut si un rang existe, sinon on
             // garde l'ordre renvoyé par l'API.
@@ -255,16 +268,24 @@ namespace ill {
         int minRank,
         int maxRank
     ) const {
-        int weekDays = Mod::get()->getSettingValue<int64_t>("week-window-days");
-        int monthDays = Mod::get()->getSettingValue<int64_t>("month-window-days");
+        // Seuil d'id au-dela duquel un niveau compte comme "recemment ajoute".
+        int recentCount = static_cast<int>(Mod::get()->getSettingValue<int64_t>("recent-count"));
+        int recentThreshold = 0;
+        if (category == ListCategory::Recent && !m_cachedLevels.empty()) {
+            std::vector<int> ids;
+            ids.reserve(m_cachedLevels.size());
+            for (auto const& lvl : m_cachedLevels) ids.push_back(lvl.listId);
+            std::sort(ids.begin(), ids.end(), std::greater<int>());
+            size_t idx = std::min<size_t>(static_cast<size_t>(std::max(recentCount, 1)), ids.size()) - 1;
+            recentThreshold = ids[idx];
+        }
 
         std::string query = searchQuery;
         std::transform(query.begin(), query.end(), query.begin(), [](unsigned char c) { return std::tolower(c); });
 
         std::vector<ImpossibleLevel> out;
         for (auto const& lvl : m_cachedLevels) {
-            if (category == ListCategory::Week && !lvl.isNewerThan(weekDays)) continue;
-            if (category == ListCategory::Month && !lvl.isNewerThan(monthDays)) continue;
+            if (category == ListCategory::Recent && lvl.listId < recentThreshold) continue;
 
             if (maxRank > 0 && lvl.rank > 0 && (lvl.rank < minRank || lvl.rank > maxRank)) continue;
 
