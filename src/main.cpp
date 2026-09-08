@@ -38,17 +38,20 @@ class $modify(ILLSearchLayer, LevelSearchLayer) {
         }
         if (!spr) return true;
 
-        // Le logo est un carre 512px : on le ramene a une taille de bouton
-        // au lieu d'un facteur d'echelle en dur, pour rester correct quelle
-        // que soit la variante (sd/hd/uhd) chargee par cocos.
-        constexpr float kButtonSize = 40.f;
-        if (spr->getContentSize().width > 0.f) {
-            spr->setScale(kButtonSize / spr->getContentSize().width);
-        }
+        // Le logo est un carre : on le borne a une taille de bouton au lieu
+        // d'un facteur d'echelle en dur, pour rester correct quelle que soit
+        // la variante (sd/hd/uhd) que cocos charge selon la resolution.
+        limitNodeSize(spr, { 30.f, 30.f }, 1.f, 0.05f);
 
         auto btn = CCMenuItemSpriteExtra::create(
             spr, this, menu_selector(ILLSearchLayer::onImpossibleLevels)
         );
+        // CCMenuItemSpriteExtra prend la taille NON mise a l'echelle du
+        // sprite : sans ca le bouton reste dimensionne pour l'image d'origine
+        // (zone de clic enorme et sprite decale dedans).
+        btn->setContentSize(spr->getScaledContentSize());
+        spr->setPosition(ccp(btn->getContentSize().width / 2.f,
+                             btn->getContentSize().height / 2.f));
         btn->setID("impossible-levels-button"_spr);
 
         // Positionné directement au-dessus du bouton retour.
