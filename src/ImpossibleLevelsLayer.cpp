@@ -188,7 +188,7 @@ void ImpossibleLevelsLayer::rebuildList() {
             header->setAnchorPoint({ 0.f, 0.5f });
             cellsBottomToTop.push_back(header);
             for (size_t i = 0; i < std::min<size_t>(5, monthLevels.size()); i++) {
-                cellsBottomToTop.push_back(LevelCell::create(
+                cellsBottomToTop.push_back(ILLLevelCell::create(
                     monthLevels[i], true, width, featuredHeight,
                     [this](auto const& lvl) { requestPlayLevel(lvl); }
                 ));
@@ -201,7 +201,7 @@ void ImpossibleLevelsLayer::rebuildList() {
             header->setAnchorPoint({ 0.f, 0.5f });
             cellsBottomToTop.push_back(header);
             for (size_t i = 0; i < std::min<size_t>(5, weekLevels.size()); i++) {
-                cellsBottomToTop.push_back(LevelCell::create(
+                cellsBottomToTop.push_back(ILLLevelCell::create(
                     weekLevels[i], true, width, featuredHeight,
                     [this](auto const& lvl) { requestPlayLevel(lvl); }
                 ));
@@ -217,7 +217,7 @@ void ImpossibleLevelsLayer::rebuildList() {
     }
 
     for (auto const& lvl : mainList) {
-        cellsBottomToTop.push_back(LevelCell::create(
+        cellsBottomToTop.push_back(ILLLevelCell::create(
             lvl, false, width, rowHeight,
             [this](auto const& l) { requestPlayLevel(l); },
             [this](auto const& l) { requestOpenRecords(l); }
@@ -229,7 +229,7 @@ void ImpossibleLevelsLayer::rebuildList() {
     for (auto* node : cellsBottomToTop) {
         float h = rowHeight;
         if (auto label = typeinfo_cast<CCLabelBMFont*>(node)) h = 26.f;
-        else if (auto cell = typeinfo_cast<LevelCell*>(node)) h = cell->getContentSize().height;
+        else if (auto cell = typeinfo_cast<ILLLevelCell*>(node)) h = cell->getContentSize().height;
         totalHeight += h;
     }
 
@@ -238,7 +238,7 @@ void ImpossibleLevelsLayer::rebuildList() {
         float h = rowHeight;
         bool isHeader = false;
         if (auto label = typeinfo_cast<CCLabelBMFont*>(node)) { h = 26.f; isHeader = true; }
-        else if (auto cell = typeinfo_cast<LevelCell*>(node)) h = cell->getContentSize().height;
+        else if (auto cell = typeinfo_cast<ILLLevelCell*>(node)) h = cell->getContentSize().height;
 
         y -= h;
         node->setPosition({ isHeader ? 10.f : 0.f, y });

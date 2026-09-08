@@ -7,8 +7,8 @@ using namespace geode::prelude;
 // Ajoute un bouton dans l'écran "Search Levels" (recherche de niveaux),
 // positionné juste au-dessus du bouton retour en bas à gauche.
 class $modify(ILLSearchLayer, LevelSearchLayer) {
-    bool init() {
-        if (!LevelSearchLayer::init()) return false;
+    bool init(int type) {
+        if (!LevelSearchLayer::init(type)) return false;
 
         // Geode assigne automatiquement un ID "back-button" au bouton retour
         // de quasiment tous les écrans du jeu. On s'en sert comme repère pour
@@ -23,8 +23,7 @@ class $modify(ILLSearchLayer, LevelSearchLayer) {
             parentMenu = backBtn->getParent();
         } else {
             // Repli si jamais l'ID change un jour : coin bas-gauche standard.
-            auto winSize = CCDirector::sharedDirector()->getWinSize();
-            anchorPos = { 25.f, 25.f };
+            anchorPos = ccp(25.f, 25.f);
             parentMenu = this;
             log::warn("[ImpossibleLevels] 'back-button' introuvable, position de repli utilisee.");
         }

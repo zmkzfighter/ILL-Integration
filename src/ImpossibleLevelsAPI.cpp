@@ -1,4 +1,6 @@
+#define _CRT_SECURE_NO_WARNINGS
 #include "ImpossibleLevelsAPI.hpp"
+#include <Geode/utils/async.hpp>
 #include <Geode/loader/Mod.hpp>
 #include <Geode/utils/web.hpp>
 #include <Geode/utils/general.hpp>
@@ -175,17 +177,19 @@ namespace ill {
         auto req = web::WebRequest();
         req.userAgent("ImpossibleLevelsGeodeMod/1.0");
 
-        req.get(url).listen([this, callback](web::WebResponse* res) {
+        // Geode 5 : plus de .listen() sur WebFuture. On passe la future a
+        // async::spawn, qui appelle le callback sur le thread principal.
+        async::spawn(req.get(url), [this, callback](web::WebResponse res) {
             m_isFetching = false;
 
-            if (!res || !res->ok()) {
-                std::string err = res ? fmt::format("Erreur HTTP {}", res->code()) : "Pas de réponse du serveur";
+            if (!res.ok()) {
+                std::string err = fmt::format("Erreur HTTP {}", res.code());
                 log::warn("[ImpossibleLevels] Echec de la requete API: {}", err);
                 callback(m_cachedLevels, false, err);
                 return;
             }
 
-            auto jsonRes = res->json();
+            auto jsonRes = res.json();
             if (!jsonRes) {
                 log::warn("[ImpossibleLevels] Reponse non-JSON recue.");
                 callback(m_cachedLevels, false, "Reponse invalide (pas du JSON)");
@@ -220,7 +224,7 @@ namespace ill {
 
             std::vector<ImpossibleLevel> parsed;
             parsed.reserve(arrPtr->size());
-            for (auto& entry : arrPtr->asArray().unwrapOr({})) {
+            for (auto& entry : arrPtr->asArray().unwrapOrDefault()) {
                 parsed.push_back(ImpossibleLevel::fromJson(entry));
             }
 

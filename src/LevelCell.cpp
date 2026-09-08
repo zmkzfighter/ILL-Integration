@@ -2,7 +2,7 @@
 
 using namespace geode::prelude;
 
-LevelCell* LevelCell::create(
+ILLLevelCell* ILLLevelCell::create(
     ill::ImpossibleLevel const& level,
     bool featured,
     float width,
@@ -10,7 +10,7 @@ LevelCell* LevelCell::create(
     std::function<void(ill::ImpossibleLevel const&)> onPlay,
     std::function<void(ill::ImpossibleLevel const&)> onRecords
 ) {
-    auto ret = new LevelCell();
+    auto ret = new ILLLevelCell();
     ret->m_onPlay = onPlay;
     ret->m_onRecords = onRecords;
     if (ret->init(level, featured, width, height)) {
@@ -21,7 +21,7 @@ LevelCell* LevelCell::create(
     return nullptr;
 }
 
-bool LevelCell::init(ill::ImpossibleLevel const& level, bool featured, float width, float height) {
+bool ILLLevelCell::init(ill::ImpossibleLevel const& level, bool featured, float width, float height) {
     m_level = level;
     m_featured = featured;
 
@@ -89,7 +89,7 @@ bool LevelCell::init(ill::ImpossibleLevel const& level, bool featured, float wid
     // --- Bouton Jouer ----------------------------------------------------
     auto playSpr = ButtonSprite::create("Jouer", "goldFont.fnt", "GJ_button_01.png", 0.8f);
     playSpr->setScale(featured ? 0.75f : 0.6f);
-    auto playBtn = CCMenuItemSpriteExtra::create(playSpr, this, menu_selector(LevelCell::onPlay));
+    auto playBtn = CCMenuItemSpriteExtra::create(playSpr, this, menu_selector(ILLLevelCell::onPlay));
     playBtn->setPosition({ width - pad - playBtn->getScaledContentSize().width / 2.f, height * 0.5f });
     menu->addChild(playBtn);
 
@@ -97,7 +97,7 @@ bool LevelCell::init(ill::ImpossibleLevel const& level, bool featured, float wid
     auto copySpr = CCSprite::createWithSpriteFrameName("GJ_copyBtn_001.png");
     if (copySpr) {
         copySpr->setScale(0.6f);
-        auto copyBtn = CCMenuItemSpriteExtra::create(copySpr, this, menu_selector(LevelCell::onCopyId));
+        auto copyBtn = CCMenuItemSpriteExtra::create(copySpr, this, menu_selector(ILLLevelCell::onCopyId));
         copyBtn->setPosition({ width - pad - playBtn->getScaledContentSize().width - 18.f, height * 0.5f });
         menu->addChild(copyBtn);
     }
@@ -105,7 +105,7 @@ bool LevelCell::init(ill::ImpossibleLevel const& level, bool featured, float wid
     return true;
 }
 
-void LevelCell::onPlay(cocos2d::CCObject*) {
+void ILLLevelCell::onPlay(cocos2d::CCObject*) {
     if (m_level.levelID <= 0) {
         Notification::create("ID de niveau introuvable pour ce niveau.", NotificationIcon::Error)->show();
         return;
@@ -113,11 +113,11 @@ void LevelCell::onPlay(cocos2d::CCObject*) {
     if (m_onPlay) m_onPlay(m_level);
 }
 
-void LevelCell::onRecords(cocos2d::CCObject*) {
+void ILLLevelCell::onRecords(cocos2d::CCObject*) {
     if (m_onRecords) m_onRecords(m_level);
 }
 
-void LevelCell::onCopyId(cocos2d::CCObject*) {
+void ILLLevelCell::onCopyId(cocos2d::CCObject*) {
     if (m_level.levelID <= 0) return;
     geode::utils::clipboard::write(std::to_string(m_level.levelID));
     Notification::create(fmt::format("ID {} copie !", m_level.levelID), NotificationIcon::Success)->show();

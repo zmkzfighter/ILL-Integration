@@ -5,7 +5,7 @@
 
 // Une cellule représentant un niveau dans la liste (mode normal ou "featured"
 // pour les blocs Nouveautés semaine/mois, plus grands et mis en valeur).
-class LevelCell : public cocos2d::CCLayerColor {
+class ILLLevelCell : public cocos2d::CCLayerColor {
 protected:
     ill::ImpossibleLevel m_level;
     bool m_featured;
@@ -19,7 +19,7 @@ protected:
     void onCopyId(cocos2d::CCObject*);
 
 public:
-    static LevelCell* create(
+    static ILLLevelCell* create(
         ill::ImpossibleLevel const& level,
         bool featured,
         float width,
