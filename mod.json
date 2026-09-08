@@ -1,0 +1,55 @@
+{
+    "geode": "4.4.0",
+    "gd": {
+        "win": "2.2074",
+        "android": "2.2074",
+        "mac": "2.2074",
+        "ios": "2.2074"
+    },
+    "version": "1.0.0",
+    "id": "com.yourname.impossiblelevels",
+    "name": "Impossible Levels List",
+    "developer": "TonPseudo",
+    "description": "Parcours et charge directement les niveaux de l'Impossible Levels List (impossiblelevels.com) depuis le jeu, avec mise en avant des nouveautés de la semaine et du mois.",
+    "repository": "https://github.com/tonpseudo/impossiblelevels-geode",
+    "tags": ["content", "utility", "levels", "interface"],
+    "dependencies": [
+        {
+            "id": "geode.node-ids",
+            "version": ">=1.0.0",
+            "importance": "required"
+        }
+    ],
+    "settings": {
+        "api-base-url": {
+            "name": "URL de base de l'API",
+            "description": "Change ceci uniquement si l'API d'impossiblelevels.com change d'adresse.",
+            "type": "string",
+            "default": "https://api.impossiblelevels.com/api"
+        },
+        "week-window-days": {
+            "name": "Fenêtre 'Semaine' (jours)",
+            "description": "Nombre de jours utilisés pour définir un niveau comme 'nouveau cette semaine'.",
+            "type": "int",
+            "default": 7,
+            "min": 1,
+            "max": 31
+        },
+        "month-window-days": {
+            "name": "Fenêtre 'Mois' (jours)",
+            "description": "Nombre de jours utilisés pour définir un niveau comme 'nouveau ce mois-ci'.",
+            "type": "int",
+            "default": 30,
+            "min": 1,
+            "max": 120
+        },
+        "cache-minutes": {
+            "name": "Durée du cache (minutes)",
+            "description": "Durée pendant laquelle la liste téléchargée est réutilisée avant un nouveau fetch réseau.",
+            "type": "int",
+            "default": 10,
+            "min": 0,
+            "max": 240
+        }
+    }
+}
