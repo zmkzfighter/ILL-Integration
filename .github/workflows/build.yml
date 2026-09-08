@@ -33,6 +33,7 @@ jobs:
         id: build
         with:
           target: ${{ matrix.target }}
+          sdk: latest
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
