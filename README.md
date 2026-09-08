@@ -1,4 +1,4 @@
-# Impossible Levels List — mod Geode
+# ILL-Integration — mod Geode
 
 [![Build Geode Mod](https://github.com/zmkzfighter/ILL-Integration/actions/workflows/build.yml/badge.svg)](https://github.com/zmkzfighter/ILL-Integration/actions/workflows/build.yml)
 
@@ -93,7 +93,7 @@ cibles : **Win64**, **MacOS**, **Android32** et **Android64**.
 
 Le job `package` fusionne ensuite les quatre binaires en **un seul fichier
 `.geode` multi-plateforme**, publié comme artefact du run
-(`ImpossibleLevelsList.geode`) — téléchargeable en bas de la page du run
+(`ILL-Integration.geode`) — téléchargeable en bas de la page du run
 dans l'onglet Actions, puis installable directement.
 
 La CI compile contre la version de Geode déclarée dans `mod.json`
