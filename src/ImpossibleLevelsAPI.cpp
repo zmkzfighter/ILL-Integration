@@ -58,6 +58,12 @@ namespace ill {
             return def;
         }
 
+        std::string lowered(std::string s) {
+            std::transform(s.begin(), s.end(), s.begin(),
+                           [](unsigned char c) { return std::tolower(c); });
+            return s;
+        }
+
         bool tryKeysBool(matjson::Value const& j, std::initializer_list<const char*> keys, bool def = false) {
             for (auto* key : keys) {
                 if (j.contains(key) && j[key].isBool()) return j[key].asBool().unwrapOr(def);
@@ -262,11 +268,25 @@ namespace ill {
         });
     }
 
+    char const* sortModeName(SortMode mode) {
+        switch (mode) {
+            case SortMode::Rank:        return "Rang";
+            case SortMode::NameAZ:      return "Nom A-Z";
+            case SortMode::NameZA:      return "Nom Z-A";
+            case SortMode::RecentFirst: return "Ajout recent";
+            case SortMode::OldestFirst: return "Ajout ancien";
+            case SortMode::LengthDesc:  return "Duree";
+            case SortMode::RatingDesc:  return "Note";
+            default:                    return "Rang";
+        }
+    }
+
     std::vector<ImpossibleLevel> ImpossibleLevelsAPI::filter(
         ListCategory category,
         std::string const& searchQuery,
         int minRank,
-        int maxRank
+        int maxRank,
+        SortMode sort
     ) const {
         // Seuil d'id au-dela duquel un niveau compte comme "recemment ajoute".
         int recentCount = static_cast<int>(Mod::get()->getSettingValue<int64_t>("recent-count"));
@@ -300,6 +320,46 @@ namespace ill {
 
             out.push_back(lvl);
         }
+
+        // Tri stable : a valeur egale, l'ordre d'origine (le rang) est
+        // conserve, ce qui evite que la liste sautille entre deux rendus.
+        switch (sort) {
+            case SortMode::NameAZ:
+                std::stable_sort(out.begin(), out.end(), [](auto const& a, auto const& b) {
+                    return lowered(a.name) < lowered(b.name);
+                });
+                break;
+            case SortMode::NameZA:
+                std::stable_sort(out.begin(), out.end(), [](auto const& a, auto const& b) {
+                    return lowered(b.name) < lowered(a.name);
+                });
+                break;
+            case SortMode::RecentFirst:
+                std::stable_sort(out.begin(), out.end(), [](auto const& a, auto const& b) {
+                    return a.listId > b.listId;
+                });
+                break;
+            case SortMode::OldestFirst:
+                std::stable_sort(out.begin(), out.end(), [](auto const& a, auto const& b) {
+                    return a.listId < b.listId;
+                });
+                break;
+            case SortMode::LengthDesc:
+                std::stable_sort(out.begin(), out.end(), [](auto const& a, auto const& b) {
+                    return a.lengthSeconds > b.lengthSeconds;
+                });
+                break;
+            case SortMode::RatingDesc:
+                std::stable_sort(out.begin(), out.end(), [](auto const& a, auto const& b) {
+                    return a.rating > b.rating;
+                });
+                break;
+            case SortMode::Rank:
+            default:
+                // out est deja dans l'ordre de m_cachedLevels, trie par rang.
+                break;
+        }
+
         return out;
     }
 

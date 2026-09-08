@@ -39,6 +39,21 @@ namespace ill {
         Recent
     };
 
+    // Ordre d'affichage de la liste.
+    enum class SortMode {
+        Rank,          // #1 en premier (ordre naturel de la liste)
+        NameAZ,
+        NameZA,
+        RecentFirst,   // dernier ajoute a la liste en premier
+        OldestFirst,   // plus ancien ajout en premier (chronologique)
+        LengthDesc,    // plus long en premier
+        RatingDesc,    // meilleure note en premier
+        COUNT
+    };
+
+    // Libelle court affiche dans le popup de filtres.
+    char const* sortModeName(SortMode mode);
+
     struct ImpossibleLevel {
         // `id` cote API : identifiant interne de la liste. Il s'incremente a
         // chaque ajout, donc l'ordre des id = l'ordre d'ajout a la liste (il
@@ -87,7 +102,8 @@ namespace ill {
             ListCategory category,
             std::string const& searchQuery,
             int minRank,
-            int maxRank
+            int maxRank,
+            SortMode sort = SortMode::Rank
         ) const;
 
         std::vector<ImpossibleLevel> const& cached() const { return m_cachedLevels; }
