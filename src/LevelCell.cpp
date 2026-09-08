@@ -35,8 +35,11 @@ bool ILLLevelCell::init(ill::ImpossibleLevel const& level, bool featured, float 
     setContentSize({ width, height });
 
     const float pad       = 8.f;
-    const float rankCol   = 42.f;   // largeur reservee au rang
+    const float rankCol   = 34.f;   // largeur reservee au rang
     const float btnCol    = 132.f;  // largeur reservee aux boutons de droite
+    const bool  showThumb = Mod::get()->getSettingValue<bool>("show-thumbnails");
+    const float thumbW    = showThumb ? (featured ? 74.f : 58.f) : 0.f;
+    const float thumbGap  = showThumb ? 6.f : 0.f;
 
     // --- Boutons a droite, dans un RowLayout : plus d'offsets en dur qui se
     //     chevauchaient des qu'un bouton apparaissait ou disparaissait.
@@ -97,8 +100,14 @@ bool ILLLevelCell::init(ill::ImpossibleLevel const& level, bool featured, float 
         addChild(tag, 11);
     }
 
-    // --- Bloc texte, borne par les deux colonnes reservees ---------------
-    const float textLeft  = pad + (level.rank > 0 ? rankCol : 0.f);
+    // --- Vignette, entre le rang et le texte -----------------------------
+    const float thumbX = pad + (level.rank > 0 ? rankCol : 0.f);
+    if (showThumb) {
+        setupThumbnail(thumbX, thumbW, thumbW * 9.f / 16.f);
+    }
+
+    // --- Bloc texte, borne par les colonnes reservees --------------------
+    const float textLeft  = thumbX + thumbW + thumbGap;
     const float textWidth = std::max(40.f, width - pad - btnCol - textLeft - 6.f);
 
     auto nameLabel = CCLabelBMFont::create(level.name.c_str(), "bigFont.fnt");
@@ -121,6 +130,43 @@ bool ILLLevelCell::init(ill::ImpossibleLevel const& level, bool featured, float 
     addChild(infoLabel, 11);
 
     return true;
+}
+
+void ILLLevelCell::setupThumbnail(float x, float w, float h) {
+    // Cadre toujours present : il tient la place pendant le chargement, ce
+    // qui evite que la ligne se reorganise quand l'image arrive.
+    auto frame = cocos2d::extension::CCScale9Sprite::create("square02b_001.png");
+    frame->setContentSize({ w, h });
+    frame->setAnchorPoint({ 0.f, 0.5f });
+    frame->setPosition({ x, getContentSize().height / 2.f });
+    frame->setOpacity(70);
+    addChild(frame, 10);
+
+    if (m_level.levelID <= 0) return;
+
+    // Le sprite est cree vide et retenu par le callback : si la cellule est
+    // detruite avant l'arrivee de l'image, le Ref garde le sprite en vie et
+    // la mise a jour se fait dans le vide, sans acces invalide.
+    auto holder = cocos2d::CCSprite::create();
+    holder->setAnchorPoint({ 0.f, 0.5f });
+    holder->setPosition({ x, getContentSize().height / 2.f });
+    addChild(holder, 11);
+
+    geode::Ref<cocos2d::CCSprite> ref = holder;
+    auto apply = [ref, w, h](cocos2d::CCTexture2D* tex) {
+        if (!tex) return;
+        ref->setTexture(tex);
+        ref->setTextureRect({ 0.f, 0.f, tex->getContentSize().width, tex->getContentSize().height });
+        auto size = ref->getContentSize();
+        if (size.width > 0.f && size.height > 0.f) {
+            // `contain` : on garde le ratio, l'image tient dans le cadre.
+            ref->setScale(std::min(w / size.width, h / size.height));
+        }
+    };
+
+    if (auto cached = ill::ThumbnailCache::get()->request(m_level.levelID, apply)) {
+        apply(cached);
+    }
 }
 
 void ILLLevelCell::onPlay(cocos2d::CCObject*) {

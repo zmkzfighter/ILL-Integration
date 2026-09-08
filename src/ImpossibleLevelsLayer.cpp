@@ -34,7 +34,7 @@ bool ImpossibleLevelsLayer::init() {
     // Seule la zone de liste garde un calcul explicite, parce que son fond et
     // sa ScrollLayer doivent partager exactement le meme rectangle.
     const float kListTop = winSize.height - 106.f;
-    const float kListBot = 30.f;
+    const float kListBot = 46.f;
 
     const float listWidth   = std::min(420.f, winSize.width - 60.f);
     const float listHeight  = std::max(60.f, kListTop - kListBot);
@@ -102,6 +102,7 @@ bool ImpossibleLevelsLayer::init() {
     m_searchInput->setScale(0.8f);
     m_searchInput->setCallback([this](std::string const& text) {
         m_searchQuery = text;
+        m_page = 0;
         rebuildList();
     });
     this->addChildAtPosition(m_searchInput, Anchor::Top, ccp(-20.f, -80.f), false);
@@ -155,6 +156,49 @@ bool ImpossibleLevelsLayer::init() {
 
     topRightMenu->updateLayout();
 
+    // --- Barre du bas : tri (directement sur la page, plus seulement dans
+    //     le popup) a gauche, pagination au centre.
+    m_sortSprite = ButtonSprite::create(ill::sortModeName(m_sort), "goldFont.fnt", "GJ_button_02.png", 0.8f);
+    m_sortSprite->setScale(0.5f);
+    auto sortBtn = CCMenuItemSpriteExtra::create(m_sortSprite, this, menu_selector(ImpossibleLevelsLayer::onCycleSort));
+    sortBtn->setID("sort-button"_spr);
+    menu->addChildAtPosition(sortBtn, Anchor::BottomLeft,
+                             ccp(14.f + m_sortSprite->getScaledContentSize().width / 2.f, 22.f));
+
+    auto prevSpr = CCSprite::createWithSpriteFrameName("GJ_arrow_03_001.png");
+    prevSpr->setScale(0.5f);
+    auto prevBtn = CCMenuItemSpriteExtra::create(prevSpr, this, menu_selector(ImpossibleLevelsLayer::onPrevPage));
+    prevBtn->setID("prev-page-button"_spr);
+    menu->addChildAtPosition(prevBtn, Anchor::Bottom, ccp(-98.f, 22.f));
+
+    auto nextSpr = CCSprite::createWithSpriteFrameName("GJ_arrow_03_001.png");
+    nextSpr->setScale(0.5f);
+    nextSpr->setFlipX(true);
+    auto nextBtn = CCMenuItemSpriteExtra::create(nextSpr, this, menu_selector(ImpossibleLevelsLayer::onNextPage));
+    nextBtn->setID("next-page-button"_spr);
+    menu->addChildAtPosition(nextBtn, Anchor::Bottom, ccp(98.f, 22.f));
+
+    m_pageLabel = CCLabelBMFont::create("", "chatFont.fnt");
+    m_pageLabel->setScale(0.5f);
+    m_pageLabel->setID("page-label"_spr);
+    this->addChildAtPosition(m_pageLabel, Anchor::Bottom, ccp(0.f, 22.f), false);
+    m_pageLabel->setZOrder(5);
+
+    // --- IDs, pour que les autres mods Geode puissent retrouver, deplacer ou
+    //     masquer nos noeuds comme sur n'importe quel ecran du jeu.
+    this->setID("ImpossibleLevelsLayer"_spr);
+    bg->setID("background"_spr);
+    title->setID("title"_spr);
+    menu->setID("main-menu"_spr);
+    backBtn->setID("back-button"_spr);
+    filterBtn->setID("filters-button"_spr);
+    m_tabMenu->setID("tab-menu"_spr);
+    m_searchInput->setID("search-input"_spr);
+    listBgSprite->setID("list-background"_spr);
+    m_scrollLayer->setID("level-list"_spr);
+    m_statusLabel->setID("status-label"_spr);
+    topRightMenu->setID("top-right-menu"_spr);
+
     reloadData(false);
 
     setKeypadEnabled(true);
@@ -189,7 +233,7 @@ void ImpossibleLevelsLayer::rebuildList() {
     m_scrollLayer->m_contentLayer->removeAllChildren();
 
     int recentCount = static_cast<int>(Mod::get()->getSettingValue<int64_t>("recent-count"));
-    int maxRows = static_cast<int>(Mod::get()->getSettingValue<int64_t>("max-rows"));
+    int pageSize = std::max(1, static_cast<int>(Mod::get()->getSettingValue<int64_t>("page-size")));
 
     float width = m_scrollLayer->getContentSize().width;
     float y = 0.f;
@@ -201,15 +245,29 @@ void ImpossibleLevelsLayer::rebuildList() {
     );
 
     // La liste complete fait ~2100 niveaux : construire autant de cellules
-    // d'un coup fige le jeu. On plafonne le rendu et on l'annonce, la
-    // recherche et le filtre de rang servent a atteindre le reste.
-    size_t total = mainList.size();
-    bool truncated = maxRows > 0 && total > static_cast<size_t>(maxRows);
-    if (truncated) mainList.resize(static_cast<size_t>(maxRows));
+    // d'un coup fige le jeu. Elle est donc paginee -- tous les niveaux
+    // restent atteignables, contrairement au plafond qui coupait la liste.
+    const size_t total = mainList.size();
+    const int pageCount = std::max(1, static_cast<int>((total + pageSize - 1) / pageSize));
+    m_page = std::clamp(m_page, 0, pageCount - 1);
+
+    const size_t from = static_cast<size_t>(m_page) * static_cast<size_t>(pageSize);
+    const size_t to   = std::min(total, from + static_cast<size_t>(pageSize));
+    if (from < total) {
+        mainList = std::vector<ill::ImpossibleLevel>(mainList.begin() + from, mainList.begin() + to);
+    } else {
+        mainList.clear();
+    }
+
+    if (m_pageLabel) {
+        m_pageLabel->setString(
+            fmt::format("Page {} / {}   -   {} niveaux", m_page + 1, pageCount, total).c_str());
+    }
 
     // --- Bandeau "nouveautes" en tete de l'onglet Tous, seulement si aucune
     //     recherche/filtre n'est actif.
-    bool showFeatured = (m_category == ill::ListCategory::All) && m_searchQuery.empty() && m_maxRank == 0;
+    bool showFeatured = (m_category == ill::ListCategory::All) && m_searchQuery.empty()
+                     && m_maxRank == 0 && m_page == 0;
 
     std::vector<cocos2d::CCNode*> cellsBottomToTop;
 
@@ -245,15 +303,6 @@ void ImpossibleLevelsLayer::rebuildList() {
             [this](auto const& l) { requestPlayLevel(l); },
             [this](auto const& l) { requestOpenShowcase(l); }
         ));
-    }
-
-    if (truncated) {
-        auto more = CCLabelBMFont::create(
-            fmt::format("{} premiers sur {} - affine la recherche ou le filtre de rang",
-                        maxRows, total).c_str(), "chatFont.fnt");
-        more->setScale(0.5f);
-        more->setAnchorPoint({ 0.f, 0.5f });
-        cellsBottomToTop.push_back(more);
     }
 
     // Place les elements de haut en bas dans le ScrollLayer (Y decroissant)
@@ -302,6 +351,28 @@ void ImpossibleLevelsLayer::keyBackClicked() {
 void ImpossibleLevelsLayer::onTab(cocos2d::CCObject* sender) {
     auto btn = static_cast<CCMenuItemSpriteExtra*>(sender);
     m_category = static_cast<ill::ListCategory>(btn->getTag());
+    m_page = 0;
+    rebuildList();
+}
+
+void ImpossibleLevelsLayer::onPrevPage(cocos2d::CCObject*) {
+    if (m_page > 0) {
+        m_page--;
+        rebuildList();
+    }
+}
+
+void ImpossibleLevelsLayer::onNextPage(cocos2d::CCObject*) {
+    // rebuildList borne m_page au nombre de pages reel.
+    m_page++;
+    rebuildList();
+}
+
+void ImpossibleLevelsLayer::onCycleSort(cocos2d::CCObject*) {
+    int next = (static_cast<int>(m_sort) + 1) % static_cast<int>(ill::SortMode::COUNT);
+    m_sort = static_cast<ill::SortMode>(next);
+    if (m_sortSprite) m_sortSprite->setString(ill::sortModeName(m_sort));
+    m_page = 0;
     rebuildList();
 }
 
@@ -320,6 +391,8 @@ void ImpossibleLevelsLayer::applyFilters(int minRank, int maxRank, ill::SortMode
     m_minRank = minRank;
     m_maxRank = maxRank;
     m_sort = sort;
+    if (m_sortSprite) m_sortSprite->setString(ill::sortModeName(m_sort));
+    m_page = 0;
     rebuildList();
 }
 

@@ -41,13 +41,25 @@
 			"min": 5,
 			"max": 500
 		},
-		"max-rows": {
-			"name": "Cellules affichees au maximum",
-			"description": "La liste complete compte plus de 2000 niveaux : les construire toutes d'un coup fige le jeu. Au-dela de cette limite, affine avec la recherche ou le filtre de rang.",
+		"page-size": {
+			"name": "Niveaux par page",
+			"description": "La liste complete compte plus de 2000 niveaux : les construire toutes d'un coup fige le jeu, elle est donc paginee. Tous les niveaux restent accessibles.",
 			"type": "int",
-			"default": 150,
-			"min": 25,
-			"max": 1000
+			"default": 25,
+			"min": 5,
+			"max": 100
+		},
+		"show-thumbnails": {
+			"name": "Afficher les vignettes",
+			"description": "Affiche la vignette de chaque niveau, servie par la meme API que le mod Level Thumbnails. Les images sont chargees a la demande et mises en cache.",
+			"type": "bool",
+			"default": true
+		},
+		"thumbnail-base-url": {
+			"name": "URL de l'API des vignettes",
+			"description": "A garder par defaut. A changer uniquement si tu as redirige le mod Level Thumbnails vers un autre serveur, pour que les deux restent coherents.",
+			"type": "string",
+			"default": "https://levelthumbs.prevter.me"
 		},
 		"cache-minutes": {
 			"name": "Duree du cache (minutes)",
