@@ -1,8 +1,17 @@
 cmake_minimum_required(VERSION 3.21)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Doit etre defini AVANT project() sinon macOS build en mono-arch et casse
+if (NOT DEFINED CMAKE_OSX_ARCHITECTURES)
+    set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
+endif()
+
 project(ImpossibleLevelsGeode VERSION 1.0.0)
 
-# Ajoute tous les .cpp du dossier src
-file(GLOB SOURCES CONFIGURE_DEPENDS "src/*.cpp")
+# Tous les .cpp du dossier src, sous-dossiers inclus
+file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp")
 
 add_library(${PROJECT_NAME} SHARED ${SOURCES})
 
