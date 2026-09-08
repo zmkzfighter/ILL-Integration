@@ -29,46 +29,59 @@ bool ImpossibleLevelsLayer::init() {
 
     auto winSize = CCDirector::sharedDirector()->getWinSize();
 
-    // Budget vertical unique pour tout l'ecran : chaque bloc part de ces
-    // valeurs au lieu de constantes dispersees, ce qui evite que le fond de
-    // liste et la ScrollLayer finissent decales l'un de l'autre.
-    const float kTitleY   = winSize.height - 18.f;
-    const float kTabsY    = winSize.height - 46.f;
-    const float kSearchY  = winSize.height - 78.f;
-    const float kListTop  = winSize.height - 98.f;
-    const float kListBot  = 46.f;
-    const float kBottomY  = 22.f;
+    // Tout est place par rapport a un coin de l'ecran (Anchor) plutot qu'a des
+    // coordonnees absolues : le rendu suit la resolution au lieu de deriver.
+    // Seule la zone de liste garde un calcul explicite, parce que son fond et
+    // sa ScrollLayer doivent partager exactement le meme rectangle.
+    const float kListTop = winSize.height - 106.f;
+    const float kListBot = 30.f;
 
     const float listWidth   = std::min(420.f, winSize.width - 60.f);
     const float listHeight  = std::max(60.f, kListTop - kListBot);
     const float listCenterX = winSize.width / 2.f;
     const float listCenterY = (kListTop + kListBot) / 2.f;
+    const float searchWidth = listWidth - 46.f;
 
     auto bg = CCSprite::create("GJ_gradientBG.png");
     bg->setScaleX(winSize.width / bg->getContentSize().width);
     bg->setScaleY(winSize.height / bg->getContentSize().height);
-    bg->setPosition({ winSize.width / 2.f, winSize.height / 2.f });
     bg->setColor({ 0, 40, 80 });
-    addChild(bg, -1);
+    this->addChildAtPosition(bg, Anchor::Center, ccp(0.f, 0.f), false);
 
     auto title = CCLabelBMFont::create("Impossible Levels List", "goldFont.fnt");
     title->setAnchorPoint({ 0.5f, 1.f });
-    title->limitLabelWidth(winSize.width - 40.f, 0.8f, 0.3f);
-    title->setPosition({ winSize.width / 2.f, kTitleY });
-    addChild(title, 5);
+    title->limitLabelWidth(winSize.width - 140.f, 0.8f, 0.3f);
+    this->addChildAtPosition(title, Anchor::Top, ccp(0.f, -12.f), false);
+    title->setZOrder(5);
 
-    // --- Onglets : RowLayout, pour que l'espacement suive la largeur reelle
-    //     des boutons au lieu d'un pas fixe de 150 px.
+    // --- Menu plein ecran : ses enfants peuvent utiliser les memes ancres.
+    auto menu = CCMenu::create();
+    menu->setContentSize(winSize);
+    menu->setPosition({ 0.f, 0.f });
+    menu->setAnchorPoint({ 0.f, 0.f });
+    addChild(menu, 5);
+
+    // Retour : en HAUT A GAUCHE et pointant vers la gauche, comme toutes les
+    // autres pages du jeu (il etait en bas et retourne vers la droite).
+    auto backSpr = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
+    backSpr->setScale(0.8f);
+    auto backBtn = CCMenuItemSpriteExtra::create(backSpr, this, menu_selector(ImpossibleLevelsLayer::onBack));
+    backBtn->setContentSize(backSpr->getScaledContentSize());
+    backSpr->setPosition(ccp(backBtn->getContentSize().width / 2.f,
+                             backBtn->getContentSize().height / 2.f));
+    menu->addChildAtPosition(backBtn, Anchor::TopLeft, ccp(24.f, -24.f));
+
+    // --- Onglets, espaces par un RowLayout.
     m_tabMenu = CCMenu::create();
     m_tabMenu->setContentSize({ listWidth, 28.f });
-    m_tabMenu->setPosition({ winSize.width / 2.f, kTabsY });
     m_tabMenu->setLayout(
         RowLayout::create()
             ->setGap(12.f)
             ->setAxisAlignment(AxisAlignment::Center)
             ->setAutoScale(false)
     );
-    addChild(m_tabMenu, 5);
+    this->addChildAtPosition(m_tabMenu, Anchor::Top, ccp(0.f, -46.f), false);
+    m_tabMenu->setZOrder(5);
 
     struct TabDef { const char* label; ill::ListCategory cat; };
     std::vector<TabDef> tabs = {
@@ -84,28 +97,25 @@ bool ImpossibleLevelsLayer::init() {
     }
     m_tabMenu->updateLayout();
 
-    // --- Recherche + filtres, cales sur la meme largeur que la liste.
-    const float searchWidth = listWidth - 46.f;
+    // --- Recherche + filtres.
     m_searchInput = TextInput::create(searchWidth, "Rechercher un niveau ou createur...");
     m_searchInput->setScale(0.8f);
-    m_searchInput->setPosition({ listCenterX - 20.f, kSearchY });
     m_searchInput->setCallback([this](std::string const& text) {
         m_searchQuery = text;
         rebuildList();
     });
-    addChild(m_searchInput, 5);
-
-    auto searchMenu = CCMenu::create();
-    searchMenu->setPosition({ 0, 0 });
-    addChild(searchMenu, 5);
+    this->addChildAtPosition(m_searchInput, Anchor::Top, ccp(-20.f, -80.f), false);
+    m_searchInput->setZOrder(5);
 
     auto filterSpr = CCSprite::createWithSpriteFrameName("GJ_optionsBtn_001.png");
     filterSpr->setScale(0.6f);
     auto filterBtn = CCMenuItemSpriteExtra::create(filterSpr, this, menu_selector(ImpossibleLevelsLayer::onFilters));
-    filterBtn->setPosition({ listCenterX + listWidth / 2.f - 14.f, kSearchY });
-    searchMenu->addChild(filterBtn);
+    filterBtn->setContentSize(filterSpr->getScaledContentSize());
+    filterSpr->setPosition(ccp(filterBtn->getContentSize().width / 2.f,
+                               filterBtn->getContentSize().height / 2.f));
+    menu->addChildAtPosition(filterBtn, Anchor::Top, ccp(listWidth / 2.f - 14.f, -80.f));
 
-    // --- Liste : le fond et la ScrollLayer derivent du MEME rectangle.
+    // --- Liste : fond et ScrollLayer issus du MEME rectangle.
     auto listBgSprite = cocos2d::extension::CCScale9Sprite::create("square02b_001.png");
     listBgSprite->setContentSize({ listWidth + 8.f, listHeight + 8.f });
     listBgSprite->setPosition({ listCenterX, listCenterY });
@@ -121,31 +131,29 @@ bool ImpossibleLevelsLayer::init() {
     m_statusLabel->setPosition({ listCenterX, listCenterY });
     addChild(m_statusLabel, 6);
 
-    // --- Barre du bas.
-    auto bottomMenu = CCMenu::create();
-    bottomMenu->setPosition({ 0, 0 });
-    addChild(bottomMenu, 5);
-
-    auto backSpr = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
-    backSpr->setScale(0.7f);
-    auto backBtn = CCMenuItemSpriteExtra::create(backSpr, this, menu_selector(ImpossibleLevelsLayer::onBack));
-    backBtn->setPosition({ 24.f, kBottomY });
-    bottomMenu->addChild(backBtn);
-
-    auto siteSpr = ButtonSprite::create("Site web", "goldFont.fnt", "GJ_button_04.png", 0.8f);
-    siteSpr->setScale(0.5f);
-    auto siteBtn = CCMenuItemSpriteExtra::create(siteSpr, this, menu_selector(ImpossibleLevelsLayer::onOpenWebsite));
-    siteBtn->setPosition({ winSize.width - 20.f - siteSpr->getScaledContentSize().width / 2.f, kBottomY });
-    bottomMenu->addChild(siteBtn);
+    // --- Coin haut droit : rafraichir puis site web, empiles par un
+    //     RowLayout pour qu'ils ne se recouvrent jamais.
+    auto topRightMenu = CCMenu::create();
+    topRightMenu->setContentSize({ 150.f, 30.f });
+    topRightMenu->setAnchorPoint({ 1.f, 0.5f });
+    topRightMenu->setLayout(
+        RowLayout::create()
+            ->setGap(8.f)
+            ->setAxisAlignment(AxisAlignment::End)
+            ->setAutoScale(false)
+    );
+    this->addChildAtPosition(topRightMenu, Anchor::TopRight, ccp(-10.f, -24.f), false);
+    topRightMenu->setZOrder(5);
 
     auto refreshSpr = CCSprite::createWithSpriteFrameName("GJ_updateBtn_001.png");
     refreshSpr->setScale(0.6f);
-    auto refreshBtn = CCMenuItemSpriteExtra::create(refreshSpr, this, menu_selector(ImpossibleLevelsLayer::onRefresh));
-    refreshBtn->setPosition({
-        winSize.width - 34.f - siteSpr->getScaledContentSize().width - refreshSpr->getScaledContentSize().width / 2.f,
-        kBottomY
-    });
-    bottomMenu->addChild(refreshBtn);
+    topRightMenu->addChild(CCMenuItemSpriteExtra::create(refreshSpr, this, menu_selector(ImpossibleLevelsLayer::onRefresh)));
+
+    auto siteSpr = ButtonSprite::create("Site web", "goldFont.fnt", "GJ_button_04.png", 0.8f);
+    siteSpr->setScale(0.5f);
+    topRightMenu->addChild(CCMenuItemSpriteExtra::create(siteSpr, this, menu_selector(ImpossibleLevelsLayer::onOpenWebsite)));
+
+    topRightMenu->updateLayout();
 
     reloadData(false);
 
