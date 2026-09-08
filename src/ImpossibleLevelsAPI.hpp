@@ -32,27 +32,36 @@ namespace ill {
 
     enum class ListCategory {
         All,
-        Week,
-        Month
+        // Les N derniers niveaux ajoutes a la liste (par id interne
+        // decroissant). L'API n'expose aucune date d'ajout, donc une fenetre
+        // "cette semaine / ce mois-ci" est impossible a calculer : c'est un
+        // nombre d'entrees, pas une duree.
+        Recent
     };
 
     struct ImpossibleLevel {
-        int rank = 0;                 // Position dans le classement (0 = inconnu)
-        int levelID = 0;               // ID du niveau GD (obligatoire pour le charger)
+        // `id` cote API : identifiant interne de la liste. Il s'incremente a
+        // chaque ajout, donc l'ordre des id = l'ordre d'ajout a la liste (il
+        // n'est PAS correle a datePublished : l'id le plus haut est un niveau
+        // GD de 2014). C'est le seul indicateur d'anciennete disponible.
+        int listId = 0;
+        int rank = 0;                  // Position dans le classement (0 = inconnu)
+        int levelID = 0;               // ID du niveau GD, 0 si l'API renvoie "N/A"
         std::string name = "Inconnu";
         std::string creator = "Inconnu";
-        double fps = 60.0;
-        std::string length;            // texte libre ("XL", "2:30", etc. selon l'API)
-        std::string difficulty;        // tier / placement textuel si fourni par l'API
-        std::string videoUrl;
-        std::string thumbnailUrl;
-        std::string recordsUrl;
-        long long addedTimestamp = 0;  // epoch (secondes) de la date d'ajout, 0 si inconnue
-        bool verified = false;
+        double fps = 0.0;
+        double lengthSeconds = 0.0;    // `levelLength` : une duree en secondes
+        double rating = 0.0;           // note ILL du niveau (peut etre negative)
+        std::string videoUrl;          // `showcaseLink`
+        std::string thumbnailUrl;      // presque toujours vide cote API
+        long long publishedTimestamp = 0;  // `datePublished` = date de sortie GD
+        bool cleared = false;          // inverse de `uncleared`
+        bool visible = true;           // `visible` : false = masque de la liste
 
         static ImpossibleLevel fromJson(matjson::Value const& j);
 
-        bool isNewerThan(int days) const;
+        // "1:38" a partir de lengthSeconds, vide si inconnu.
+        std::string lengthString() const;
     };
 
     class ImpossibleLevelsAPI {
