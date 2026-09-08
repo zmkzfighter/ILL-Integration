@@ -1,4 +1,5 @@
 #include "FilterPopup.hpp"
+#include <utility>
 
 using namespace geode::prelude;
 
@@ -69,6 +70,8 @@ void FilterPopup::onApply(cocos2d::CCObject*) {
     int minRank = 0, maxRank = 0;
     try { minRank = std::stoi(std::string(m_minInput->getString())); } catch (...) {}
     try { maxRank = std::stoi(std::string(m_maxInput->getString())); } catch (...) {}
+    // Saisir "50 - 10" donnait une liste vide sans rien expliquer.
+    if (minRank > 0 && maxRank > 0 && minRank > maxRank) std::swap(minRank, maxRank);
     if (m_callback) m_callback(minRank, maxRank, m_sort);
     this->onClose(nullptr);
 }

@@ -5,6 +5,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <deque>
 #include <vector>
 
 namespace ill {
@@ -25,12 +26,20 @@ namespace ill {
 
         std::unordered_map<int, geode::Ref<cocos2d::CCTexture2D>> m_textures;
         std::unordered_set<int> m_inFlight;
+        // Une page affiche jusqu'a 100 lignes : sans file d'attente, autant
+        // de requetes partaient d'un coup et saturaient la connexion.
+        std::deque<int> m_queue;
+        std::unordered_set<int> m_queued;
+        static constexpr size_t kMaxParallel = 6;
         std::unordered_set<int> m_failed;
         // Plusieurs cellules peuvent demander le meme niveau avant que la
         // reponse arrive : on empile les callbacks au lieu de refaire l'appel.
         std::unordered_map<int, std::vector<std::function<void(cocos2d::CCTexture2D*)>>> m_waiters;
 
         void deliver(int levelID, cocos2d::CCTexture2D* tex);
+        void pump();
+        void fetch(int levelID);
+        void fail(int levelID);
 
     public:
         static ThumbnailCache* get();

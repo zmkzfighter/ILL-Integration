@@ -28,6 +28,21 @@ namespace ill {
         }
     }
 
+    void ThumbnailCache::fail(int levelID) {
+        m_failed.insert(levelID);
+        m_waiters.erase(levelID);
+    }
+
+    // Depile tant qu'on est sous le plafond de requetes simultanees.
+    void ThumbnailCache::pump() {
+        while (m_inFlight.size() < kMaxParallel && !m_queue.empty()) {
+            int id = m_queue.front();
+            m_queue.pop_front();
+            m_queued.erase(id);
+            fetch(id);
+        }
+    }
+
     CCTexture2D* ThumbnailCache::request(int levelID, std::function<void(CCTexture2D*)> callback) {
         if (levelID <= 0) return nullptr;
 
@@ -40,7 +55,15 @@ namespace ill {
 
         if (callback) m_waiters[levelID].push_back(std::move(callback));
 
-        if (m_inFlight.count(levelID)) return nullptr;
+        if (m_inFlight.count(levelID) || m_queued.count(levelID)) return nullptr;
+
+        m_queue.push_back(levelID);
+        m_queued.insert(levelID);
+        pump();
+        return nullptr;
+    }
+
+    void ThumbnailCache::fetch(int levelID) {
         m_inFlight.insert(levelID);
 
         auto req = web::WebRequest();
@@ -52,8 +75,8 @@ namespace ill {
             m_inFlight.erase(levelID);
 
             if (!res.ok()) {
-                m_failed.insert(levelID);
-                m_waiters.erase(levelID);
+                fail(levelID);
+                pump();
                 return;
             }
 
@@ -63,8 +86,8 @@ namespace ill {
             auto img = new CCImage();
             if (!img->initWithImageData(data.data(), static_cast<int>(data.size()))) {
                 delete img;
-                m_failed.insert(levelID);
-                m_waiters.erase(levelID);
+                fail(levelID);
+                pump();
                 log::warn("[ImpossibleLevels] vignette {} : image illisible", levelID);
                 return;
             }
@@ -75,23 +98,24 @@ namespace ill {
 
             if (!ok) {
                 tex->release();
-                m_failed.insert(levelID);
-                m_waiters.erase(levelID);
+                fail(levelID);
+                pump();
                 return;
             }
 
             tex->autorelease();
             m_textures[levelID] = tex;
             deliver(levelID, tex);
+            pump();
         });
-
-        return nullptr;
     }
 
     void ThumbnailCache::clear() {
         m_textures.clear();
         m_failed.clear();
         m_waiters.clear();
+        m_queue.clear();
+        m_queued.clear();
     }
 
 }
