@@ -100,6 +100,32 @@ La CI compile contre la version de Geode déclarée dans `mod.json`
 (`"geode": "5.10.1"`) grâce à `sdk: given` : bumper cette valeur suffit
 pour changer de SDK, la CI suit automatiquement.
 
+### Publier une release
+
+Pousser un tag `vX.Y.Z` déclenche, après les 4 builds, un job `release` qui
+crée une **release GitHub** avec le `.geode` multi-plateforme en pièce
+jointe et un changelog généré automatiquement depuis les commits/PR
+depuis la release précédente.
+
+```bash
+# 1. bump la version dans mod.json, commit, push
+# 2. puis :
+git tag v1.0.1
+git push origin v1.0.1
+```
+
+Deux garde-fous :
+
+- **Le tag doit correspondre à `mod.json`.** Taguer `v1.0.1` alors que
+  `mod.json` déclare encore `1.0.0` fait échouer le job avant de publier
+  quoi que ce soit — sinon le `.geode` publié annoncerait une version
+  différente de celle du tag.
+- **Un tag à suffixe est publié en pre-release** (`v1.1.0-beta.1`,
+  `v2.0.0-rc1`...). Dans ce cas `mod.json` doit porter le même suffixe.
+
+La release n'est créée que si les 4 builds passent : un tag poussé sur du
+code qui ne compile pas ne publie rien.
+
 Pense à :
 - Adapter `mod.json` → `id`, `developer`, `repository` avec tes propres
   infos.
