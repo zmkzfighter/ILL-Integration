@@ -32,48 +32,81 @@ bool ILLLevelCell::init(ill::ImpossibleLevel const& level, bool featured, float 
             : cocos2d::ccColor4B{ 0, 0, 0, 30 });
 
     if (!CCLayerColor::initWithColor(bg, width, height)) return false;
-
-    setAnchorPoint({ 0.f, 0.f });
     setContentSize({ width, height });
 
+    const float pad       = 8.f;
+    const float rankCol   = 42.f;   // largeur reservee au rang
+    const float btnCol    = 132.f;  // largeur reservee aux boutons de droite
+
+    // --- Boutons a droite, dans un RowLayout : plus d'offsets en dur qui se
+    //     chevauchaient des qu'un bouton apparaissait ou disparaissait.
     auto menu = CCMenu::create();
-    menu->setPosition({ 0, 0 });
+    menu->setContentSize({ btnCol, height });
+    menu->setAnchorPoint({ 1.f, 0.5f });
+    menu->setPosition({ width - pad, height / 2.f });
+    menu->setLayout(
+        geode::RowLayout::create()
+            ->setGap(5.f)
+            ->setAxisAlignment(geode::AxisAlignment::End)
+            ->setAutoScale(false)
+    );
     addChild(menu, 10);
 
-    float pad = 10.f;
-
-    // --- Tag "NOUVEAU" pour les cellules mises en avant ---------------
-    if (featured) {
-        auto tag = CCLabelBMFont::create("NOUVEAU", "bigFont.fnt");
-        tag->setScale(0.35f);
-        tag->setColor({ 255, 220, 90 });
-        tag->setAnchorPoint({ 0.f, 1.f });
-        tag->setPosition({ pad, height - 6.f });
-        addChild(tag, 11);
+    // Ordre d'ajout = ordre de gauche a droite : Jouer finit a droite.
+    if (!m_level.videoUrl.empty()) {
+        auto vidSpr = ButtonSprite::create("Vid", "goldFont.fnt", "GJ_button_05.png", 0.8f);
+        vidSpr->setScale(0.42f);
+        menu->addChild(CCMenuItemSpriteExtra::create(vidSpr, this, menu_selector(ILLLevelCell::onShowcase)));
     }
 
-    // --- Rang -----------------------------------------------------------
+    bool playable = level.levelID > 0;
+
+    if (playable) {
+        // GJ_copyBtn_001.png existe bien ; l'ancienne icone video devinee
+        // (gj_watchVideoBtn_001.png) n'existe pas et s'affichait en damier.
+        if (auto copySpr = CCSprite::createWithSpriteFrameName("GJ_copyBtn_001.png")) {
+            copySpr->setScale(0.5f);
+            menu->addChild(CCMenuItemSpriteExtra::create(copySpr, this, menu_selector(ILLLevelCell::onCopyId)));
+        }
+    }
+
+    auto playSpr = ButtonSprite::create(
+        playable ? "Jouer" : "Pas d'ID", "goldFont.fnt",
+        playable ? "GJ_button_01.png" : "GJ_button_04.png", 0.8f);
+    playSpr->setScale(0.48f);
+    menu->addChild(CCMenuItemSpriteExtra::create(playSpr, this, menu_selector(ILLLevelCell::onPlay)));
+
+    menu->updateLayout();
+
+    // --- Colonne de gauche : rang, puis le tag NOUVEAU EN DESSOUS. Les deux
+    //     etaient dessines a x = pad a 11 px d'ecart : ils se superposaient.
     if (level.rank > 0) {
         auto rankLabel = CCLabelBMFont::create(fmt::format("#{}", level.rank).c_str(), "goldFont.fnt");
-        rankLabel->setScale(featured ? 0.55f : 0.45f);
         rankLabel->setAnchorPoint({ 0.f, 0.5f });
-        rankLabel->setPosition({ pad, height * (featured ? 0.72f : 0.5f) });
+        rankLabel->limitLabelWidth(rankCol - 6.f, featured ? 0.5f : 0.42f, 0.2f);
+        rankLabel->setPosition({ pad, featured ? height * 0.66f : height * 0.5f });
         addChild(rankLabel, 11);
     }
 
-    // --- Nom du niveau ----------------------------------------------------
-    float textStartX = level.rank > 0 ? pad + 46.f : pad;
+    if (featured) {
+        auto tag = CCLabelBMFont::create("NOUVEAU", "bigFont.fnt");
+        tag->setAnchorPoint({ 0.f, 0.5f });
+        tag->limitLabelWidth(rankCol - 6.f, 0.3f, 0.15f);
+        tag->setColor({ 255, 220, 90 });
+        tag->setPosition({ pad, height * 0.28f });
+        addChild(tag, 11);
+    }
+
+    // --- Bloc texte, borne par les deux colonnes reservees ---------------
+    const float textLeft  = pad + (level.rank > 0 ? rankCol : 0.f);
+    const float textWidth = std::max(40.f, width - pad - btnCol - textLeft - 6.f);
 
     auto nameLabel = CCLabelBMFont::create(level.name.c_str(), "bigFont.fnt");
-    nameLabel->setScale(featured ? 0.42f : 0.35f);
     nameLabel->setAnchorPoint({ 0.f, 0.5f });
-    nameLabel->setPosition({ textStartX, height * (featured ? 0.7f : 0.62f) });
-    if (nameLabel->getScaledContentSize().width > width - textStartX - 90.f) {
-        nameLabel->setScale(nameLabel->getScale() * (width - textStartX - 90.f) / nameLabel->getScaledContentSize().width);
-    }
+    nameLabel->limitLabelWidth(textWidth, featured ? 0.45f : 0.38f, 0.16f);
+    nameLabel->setPosition({ textLeft, height * 0.66f });
     addChild(nameLabel, 11);
 
-    // --- Créateur + infos ---------------------------------------------
     std::string infoStr = fmt::format("par {}", level.creator);
     if (auto len = level.lengthString(); !len.empty()) infoStr += fmt::format("  |  {}", len);
     if (level.fps > 0.0) infoStr += fmt::format("  |  {:.0f} FPS", level.fps);
@@ -81,44 +114,11 @@ bool ILLLevelCell::init(ill::ImpossibleLevel const& level, bool featured, float 
     if (!level.cleared) infoStr += "  |  jamais battu";
 
     auto infoLabel = CCLabelBMFont::create(infoStr.c_str(), "chatFont.fnt");
-    infoLabel->setScale(0.4f);
-    infoLabel->setColor({ 180, 180, 190 });
     infoLabel->setAnchorPoint({ 0.f, 0.5f });
-    infoLabel->setPosition({ textStartX, height * (featured ? 0.42f : 0.34f) });
+    infoLabel->limitLabelWidth(textWidth, 0.38f, 0.14f);
+    infoLabel->setColor({ 180, 180, 190 });
+    infoLabel->setPosition({ textLeft, height * 0.30f });
     addChild(infoLabel, 11);
-
-    // --- Bouton Jouer ----------------------------------------------------
-    // ~1 niveau sur 100 a `levelId: "N/A"` cote API : injouable, on le montre.
-    bool playable = level.levelID > 0;
-    auto playSpr = ButtonSprite::create(
-        playable ? "Jouer" : "Pas d'ID", "goldFont.fnt",
-        playable ? "GJ_button_01.png" : "GJ_button_04.png", 0.8f);
-    playSpr->setScale(featured ? 0.75f : 0.6f);
-    auto playBtn = CCMenuItemSpriteExtra::create(playSpr, this, menu_selector(ILLLevelCell::onPlay));
-    playBtn->setPosition({ width - pad - playBtn->getScaledContentSize().width / 2.f, height * 0.5f });
-    menu->addChild(playBtn);
-
-    // --- Boutons secondaires : copier l'ID, puis showcase ----------------
-    float sideX = width - pad - playBtn->getScaledContentSize().width - 18.f;
-
-    if (playable) {
-        if (auto copySpr = CCSprite::createWithSpriteFrameName("GJ_copyBtn_001.png")) {
-            copySpr->setScale(0.6f);
-            auto copyBtn = CCMenuItemSpriteExtra::create(copySpr, this, menu_selector(ILLLevelCell::onCopyId));
-            copyBtn->setPosition({ sideX, height * 0.5f });
-            menu->addChild(copyBtn);
-            sideX -= 26.f;
-        }
-    }
-
-    if (!m_level.videoUrl.empty()) {
-        if (auto vidSpr = CCSprite::createWithSpriteFrameName("gj_watchVideoBtn_001.png")) {
-            vidSpr->setScale(0.55f);
-            auto vidBtn = CCMenuItemSpriteExtra::create(vidSpr, this, menu_selector(ILLLevelCell::onShowcase));
-            vidBtn->setPosition({ sideX, height * 0.5f });
-            menu->addChild(vidBtn);
-        }
-    }
 
     return true;
 }

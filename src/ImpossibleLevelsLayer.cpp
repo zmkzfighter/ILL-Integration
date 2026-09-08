@@ -29,7 +29,21 @@ bool ImpossibleLevelsLayer::init() {
 
     auto winSize = CCDirector::sharedDirector()->getWinSize();
 
-    // Fond similaire aux autres menus du jeu
+    // Budget vertical unique pour tout l'ecran : chaque bloc part de ces
+    // valeurs au lieu de constantes dispersees, ce qui evite que le fond de
+    // liste et la ScrollLayer finissent decales l'un de l'autre.
+    const float kTitleY   = winSize.height - 18.f;
+    const float kTabsY    = winSize.height - 46.f;
+    const float kSearchY  = winSize.height - 78.f;
+    const float kListTop  = winSize.height - 98.f;
+    const float kListBot  = 46.f;
+    const float kBottomY  = 22.f;
+
+    const float listWidth   = std::min(420.f, winSize.width - 60.f);
+    const float listHeight  = std::max(60.f, kListTop - kListBot);
+    const float listCenterX = winSize.width / 2.f;
+    const float listCenterY = (kListTop + kListBot) / 2.f;
+
     auto bg = CCSprite::create("GJ_gradientBG.png");
     bg->setScaleX(winSize.width / bg->getContentSize().width);
     bg->setScaleY(winSize.height / bg->getContentSize().height);
@@ -37,39 +51,23 @@ bool ImpossibleLevelsLayer::init() {
     bg->setColor({ 0, 40, 80 });
     addChild(bg, -1);
 
-    // Titre
     auto title = CCLabelBMFont::create("Impossible Levels List", "goldFont.fnt");
-    title->setScale(0.9f);
-    title->setPosition({ winSize.width / 2.f, winSize.height - 25.f });
+    title->setAnchorPoint({ 0.5f, 1.f });
+    title->limitLabelWidth(winSize.width - 40.f, 0.8f, 0.3f);
+    title->setPosition({ winSize.width / 2.f, kTitleY });
     addChild(title, 5);
 
-    // --- Menu du bas (retour + site web) --------------------------------
-    auto bottomMenu = CCMenu::create();
-    bottomMenu->setPosition({ 0, 0 });
-    addChild(bottomMenu, 5);
-
-    auto backSpr = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
-    backSpr->setFlipX(true);
-    backSpr->setScale(0.9f);
-    auto backBtn = CCMenuItemSpriteExtra::create(backSpr, this, menu_selector(ImpossibleLevelsLayer::onBack));
-    backBtn->setPosition({ 25.f, 25.f });
-    bottomMenu->addChild(backBtn);
-
-    auto siteSpr = ButtonSprite::create("Site web", "goldFont.fnt", "GJ_button_04.png", 0.8f);
-    siteSpr->setScale(0.65f);
-    auto siteBtn = CCMenuItemSpriteExtra::create(siteSpr, this, menu_selector(ImpossibleLevelsLayer::onOpenWebsite));
-    siteBtn->setPosition({ winSize.width - 60.f, 25.f });
-    bottomMenu->addChild(siteBtn);
-
-    auto refreshSpr = CCSprite::createWithSpriteFrameName("GJ_updateBtn_001.png");
-    refreshSpr->setScale(0.8f);
-    auto refreshBtn = CCMenuItemSpriteExtra::create(refreshSpr, this, menu_selector(ImpossibleLevelsLayer::onRefresh));
-    refreshBtn->setPosition({ winSize.width - 130.f, 25.f });
-    bottomMenu->addChild(refreshBtn);
-
-    // --- Onglets Tous / Semaine / Mois -----------------------------------
+    // --- Onglets : RowLayout, pour que l'espacement suive la largeur reelle
+    //     des boutons au lieu d'un pas fixe de 150 px.
     m_tabMenu = CCMenu::create();
-    m_tabMenu->setPosition({ winSize.width / 2.f, winSize.height - 60.f });
+    m_tabMenu->setContentSize({ listWidth, 28.f });
+    m_tabMenu->setPosition({ winSize.width / 2.f, kTabsY });
+    m_tabMenu->setLayout(
+        RowLayout::create()
+            ->setGap(12.f)
+            ->setAxisAlignment(AxisAlignment::Center)
+            ->setAutoScale(false)
+    );
     addChild(m_tabMenu, 5);
 
     struct TabDef { const char* label; ill::ListCategory cat; };
@@ -77,55 +75,77 @@ bool ImpossibleLevelsLayer::init() {
         { "Tous", ill::ListCategory::All },
         { "Nouveautes", ill::ListCategory::Recent }
     };
-
-    float tabX = -75.f;
     for (auto& t : tabs) {
-        auto spr = ButtonSprite::create(t.label, "bigFont.fnt", "GJ_button_02.png", 0.9f);
-        spr->setScale(0.7f);
+        auto spr = ButtonSprite::create(t.label, "bigFont.fnt", "GJ_button_02.png", 0.8f);
+        spr->setScale(0.6f);
         auto btn = CCMenuItemSpriteExtra::create(spr, this, menu_selector(ImpossibleLevelsLayer::onTab));
-        btn->setPosition({ tabX, 0 });
         btn->setTag(static_cast<int>(t.cat));
         m_tabMenu->addChild(btn);
-        tabX += 150.f;
     }
+    m_tabMenu->updateLayout();
 
-    // --- Barre de recherche + filtres -------------------------------------
-    auto searchMenu = CCMenu::create();
-    searchMenu->setPosition({ 0, 0 });
-    addChild(searchMenu, 5);
-
-    m_searchInput = TextInput::create(220.f, "Rechercher un niveau ou createur...");
-    m_searchInput->setPosition({ winSize.width / 2.f - 60.f, winSize.height - 95.f });
+    // --- Recherche + filtres, cales sur la meme largeur que la liste.
+    const float searchWidth = listWidth - 46.f;
+    m_searchInput = TextInput::create(searchWidth, "Rechercher un niveau ou createur...");
+    m_searchInput->setScale(0.8f);
+    m_searchInput->setPosition({ listCenterX - 20.f, kSearchY });
     m_searchInput->setCallback([this](std::string const& text) {
         m_searchQuery = text;
         rebuildList();
     });
     addChild(m_searchInput, 5);
 
+    auto searchMenu = CCMenu::create();
+    searchMenu->setPosition({ 0, 0 });
+    addChild(searchMenu, 5);
+
     auto filterSpr = CCSprite::createWithSpriteFrameName("GJ_optionsBtn_001.png");
-    filterSpr->setScale(0.8f);
+    filterSpr->setScale(0.6f);
     auto filterBtn = CCMenuItemSpriteExtra::create(filterSpr, this, menu_selector(ImpossibleLevelsLayer::onFilters));
-    filterBtn->setPosition({ winSize.width / 2.f + 90.f, winSize.height - 95.f });
+    filterBtn->setPosition({ listCenterX + listWidth / 2.f - 14.f, kSearchY });
     searchMenu->addChild(filterBtn);
 
-    // --- Zone de liste (ScrollLayer) --------------------------------------
-    float listWidth = std::min(480.f, winSize.width - 40.f);
-    float listHeight = winSize.height - 190.f;
-
+    // --- Liste : le fond et la ScrollLayer derivent du MEME rectangle.
     auto listBgSprite = cocos2d::extension::CCScale9Sprite::create("square02b_001.png");
-    listBgSprite->setContentSize({ listWidth + 6.f, listHeight + 6.f });
-    listBgSprite->setPosition({ winSize.width / 2.f, winSize.height / 2.f - 25.f });
-    listBgSprite->setOpacity(120);
+    listBgSprite->setContentSize({ listWidth + 8.f, listHeight + 8.f });
+    listBgSprite->setPosition({ listCenterX, listCenterY });
+    listBgSprite->setOpacity(90);
     addChild(listBgSprite, 3);
 
     m_scrollLayer = ScrollLayer::create({ listWidth, listHeight });
-    m_scrollLayer->setPosition({ winSize.width / 2.f - listWidth / 2.f, winSize.height / 2.f - 25.f - listHeight / 2.f });
+    m_scrollLayer->setPosition({ listCenterX - listWidth / 2.f, kListBot });
     addChild(m_scrollLayer, 4);
 
     m_statusLabel = CCLabelBMFont::create("Chargement...", "bigFont.fnt");
-    m_statusLabel->setScale(0.6f);
-    m_statusLabel->setPosition({ winSize.width / 2.f, winSize.height / 2.f - 25.f });
+    m_statusLabel->setScale(0.5f);
+    m_statusLabel->setPosition({ listCenterX, listCenterY });
     addChild(m_statusLabel, 6);
+
+    // --- Barre du bas.
+    auto bottomMenu = CCMenu::create();
+    bottomMenu->setPosition({ 0, 0 });
+    addChild(bottomMenu, 5);
+
+    auto backSpr = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
+    backSpr->setScale(0.7f);
+    auto backBtn = CCMenuItemSpriteExtra::create(backSpr, this, menu_selector(ImpossibleLevelsLayer::onBack));
+    backBtn->setPosition({ 24.f, kBottomY });
+    bottomMenu->addChild(backBtn);
+
+    auto siteSpr = ButtonSprite::create("Site web", "goldFont.fnt", "GJ_button_04.png", 0.8f);
+    siteSpr->setScale(0.5f);
+    auto siteBtn = CCMenuItemSpriteExtra::create(siteSpr, this, menu_selector(ImpossibleLevelsLayer::onOpenWebsite));
+    siteBtn->setPosition({ winSize.width - 20.f - siteSpr->getScaledContentSize().width / 2.f, kBottomY });
+    bottomMenu->addChild(siteBtn);
+
+    auto refreshSpr = CCSprite::createWithSpriteFrameName("GJ_updateBtn_001.png");
+    refreshSpr->setScale(0.6f);
+    auto refreshBtn = CCMenuItemSpriteExtra::create(refreshSpr, this, menu_selector(ImpossibleLevelsLayer::onRefresh));
+    refreshBtn->setPosition({
+        winSize.width - 34.f - siteSpr->getScaledContentSize().width - refreshSpr->getScaledContentSize().width / 2.f,
+        kBottomY
+    });
+    bottomMenu->addChild(refreshBtn);
 
     reloadData(false);
 
@@ -154,9 +174,11 @@ void ImpossibleLevelsLayer::reloadData(bool forceNetwork) {
 void ImpossibleLevelsLayer::rebuildList() {
     if (!m_scrollLayer) return;
 
-    for (auto child : CCArrayExt<CCNode*>(m_scrollLayer->m_contentLayer->getChildren())) {
-        child->removeFromParent();
-    }
+    // NE PAS iterer les enfants en appelant removeFromParent() dessus :
+    // chaque suppression mute le CCArray pendant le parcours, ce qui faisait
+    // crasher le jeu (EXCEPTION_ACCESS_VIOLATION) des qu'on tapait dans la
+    // barre de recherche, la liste etant alors deja peuplee.
+    m_scrollLayer->m_contentLayer->removeAllChildren();
 
     int recentCount = static_cast<int>(Mod::get()->getSettingValue<int64_t>("recent-count"));
     int maxRows = static_cast<int>(Mod::get()->getSettingValue<int64_t>("max-rows"));
@@ -167,7 +189,7 @@ void ImpossibleLevelsLayer::rebuildList() {
     float featuredHeight = 60.f;
 
     std::vector<ill::ImpossibleLevel> mainList = ill::ImpossibleLevelsAPI::get()->filter(
-        m_category, m_searchQuery, m_minRank, m_maxRank
+        m_category, m_searchQuery, m_minRank, m_maxRank, m_sort
     );
 
     // La liste complete fait ~2100 niveaux : construire autant de cellules
@@ -184,7 +206,10 @@ void ImpossibleLevelsLayer::rebuildList() {
     std::vector<cocos2d::CCNode*> cellsBottomToTop;
 
     if (showFeatured) {
-        auto recent = ill::ImpossibleLevelsAPI::get()->filter(ill::ListCategory::Recent, "", 0, 0);
+        // Le bandeau montre toujours les derniers ajoutes en premier, quel
+        // que soit le tri choisi pour la liste principale.
+        auto recent = ill::ImpossibleLevelsAPI::get()->filter(
+            ill::ListCategory::Recent, "", 0, 0, ill::SortMode::RecentFirst);
         if (!recent.empty()) {
             auto header = CCLabelBMFont::create(
                 fmt::format("Derniers ajouts a la liste ({})", recentCount).c_str(), "goldFont.fnt");
@@ -240,8 +265,10 @@ void ImpossibleLevelsLayer::rebuildList() {
         else if (auto cell = typeinfo_cast<ILLLevelCell*>(node)) h = cell->getContentSize().height;
 
         y -= h;
-        node->setPosition({ isHeader ? 10.f : 0.f, y });
-        if (!isHeader) node->setAnchorPoint({ 0.f, 0.f });
+        // Les en-tetes sont ancres en (0, 0.5) : il faut les centrer dans
+        // leur emplacement, sinon la moitie basse deborde sur la cellule
+        // suivante (le titre de section apparaissait coupe).
+        node->setPosition({ isHeader ? 10.f : 0.f, isHeader ? y + h / 2.f : y });
         m_scrollLayer->m_contentLayer->addChild(node);
     }
 
@@ -258,6 +285,12 @@ void ImpossibleLevelsLayer::onBack(cocos2d::CCObject*) {
     CCDirector::sharedDirector()->popSceneWithTransition(0.4f, kPopTransitionFade);
 }
 
+// Echap sur PC / bouton retour sur mobile. setKeypadEnabled(true) etait deja
+// appele dans init(), mais rien ne recuperait l'evenement.
+void ImpossibleLevelsLayer::keyBackClicked() {
+    this->onBack(nullptr);
+}
+
 void ImpossibleLevelsLayer::onTab(cocos2d::CCObject* sender) {
     auto btn = static_cast<CCMenuItemSpriteExtra*>(sender);
     m_category = static_cast<ill::ListCategory>(btn->getTag());
@@ -269,14 +302,16 @@ void ImpossibleLevelsLayer::onRefresh(cocos2d::CCObject*) {
 }
 
 void ImpossibleLevelsLayer::onFilters(cocos2d::CCObject*) {
-    FilterPopup::create(m_minRank, m_maxRank, [this](int minR, int maxR) {
-        setFilterRankRange(minR, maxR);
-    })->show();
+    FilterPopup::create(m_minRank, m_maxRank, m_sort,
+        [this](int minR, int maxR, ill::SortMode sort) {
+            applyFilters(minR, maxR, sort);
+        })->show();
 }
 
-void ImpossibleLevelsLayer::setFilterRankRange(int minRank, int maxRank) {
+void ImpossibleLevelsLayer::applyFilters(int minRank, int maxRank, ill::SortMode sort) {
     m_minRank = minRank;
     m_maxRank = maxRank;
+    m_sort = sort;
     rebuildList();
 }
 

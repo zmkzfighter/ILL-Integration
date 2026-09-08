@@ -14,6 +14,7 @@ protected:
     std::string m_searchQuery;
     int m_minRank = 0;
     int m_maxRank = 0;
+    ill::SortMode m_sort = ill::SortMode::Rank;
 
     geode::ScrollLayer* m_scrollLayer = nullptr;
     geode::TextInput* m_searchInput = nullptr;
@@ -28,6 +29,7 @@ protected:
     void rebuildList();
 
     void onBack(cocos2d::CCObject*);
+    void keyBackClicked() override;
     void onTab(cocos2d::CCObject*);
     void onRefresh(cocos2d::CCObject*);
     void onFilters(cocos2d::CCObject*);
@@ -52,5 +54,5 @@ public:
     static ImpossibleLevelsLayer* create();
     static cocos2d::CCScene* scene();
 
-    void setFilterRankRange(int minRank, int maxRank);
+    void applyFilters(int minRank, int maxRank, ill::SortMode sort);
 };
