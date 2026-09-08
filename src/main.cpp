@@ -28,9 +28,23 @@ class $modify(ILLSearchLayer, LevelSearchLayer) {
             log::warn("[ImpossibleLevels] 'back-button' introuvable, position de repli utilisee.");
         }
 
-        auto spr = CCSprite::createWithSpriteFrameName("GJ_challengeBtn_001.png");
-        if (!spr) spr = CCSprite::create("GJ_challengeBtn_001.png");
-        spr->setScale(0.85f);
+        // Logo ILL fourni par le mod. `_spr` prefixe le nom par l'id du mod,
+        // c'est ce que le CLI Geode genere a partir de resources.sprites.
+        auto spr = CCSprite::create("ill-logo.png"_spr);
+        if (!spr) {
+            // Repli sur un sprite du jeu si la ressource manque a l'appel.
+            log::warn("[ImpossibleLevels] ill-logo.png introuvable, sprite de repli utilise.");
+            spr = CCSprite::createWithSpriteFrameName("GJ_challengeBtn_001.png");
+        }
+        if (!spr) return true;
+
+        // Le logo est un carre 512px : on le ramene a une taille de bouton
+        // au lieu d'un facteur d'echelle en dur, pour rester correct quelle
+        // que soit la variante (sd/hd/uhd) chargee par cocos.
+        constexpr float kButtonSize = 40.f;
+        if (spr->getContentSize().width > 0.f) {
+            spr->setScale(kButtonSize / spr->getContentSize().width);
+        }
 
         auto btn = CCMenuItemSpriteExtra::create(
             spr, this, menu_selector(ILLSearchLayer::onImpossibleLevels)

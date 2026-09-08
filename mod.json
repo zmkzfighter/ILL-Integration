@@ -15,6 +15,11 @@
 		"source": "https://github.com/zmkzfighter/ILL-Integration"
 	},
 	"tags": ["content", "utility", "interface"],
+	"resources": {
+		"sprites": [
+			"resources/ill-logo.png"
+		]
+	},
 	"dependencies": {
 		"geode.node-ids": {
 			"version": ">=v1.20.0",
