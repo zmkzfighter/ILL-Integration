@@ -75,7 +75,7 @@ jobs:
           path: ${{ steps.build.outputs.build-output }}
 
   release:
-    name: Release (${{ github.ref_name }})
+    name: Release (sur tag)
     runs-on: ubuntu-latest
     needs: package
     # Uniquement sur un push de tag `v*` : les pushs sur main et les pull
