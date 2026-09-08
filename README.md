@@ -1,5 +1,7 @@
 # Impossible Levels List — mod Geode
 
+[![Build Geode Mod](https://github.com/zmkzfighter/ILL-Integration/actions/workflows/build.yml/badge.svg)](https://github.com/zmkzfighter/ILL-Integration/actions/workflows/build.yml)
+
 Mod pour Geometry Dash (via [Geode](https://geode-sdk.org)) qui ajoute un
 écran permettant de parcourir et charger directement les niveaux de
 **[impossiblelevels.com](https://impossiblelevels.com/)**.
@@ -82,6 +84,22 @@ cmake --build . --config Release
 Le fichier `.geode` généré peut ensuite être installé via
 `geode install` ou glissé dans le dossier `mods` de Geode.
 
+### Compilation automatique (GitHub Actions)
+
+Le workflow [`.github/workflows/build.yml`](.github/workflows/build.yml)
+compile le mod à chaque push et chaque pull request sur `main` (et à la
+demande via **Actions → Build Geode Mod → Run workflow**), pour quatre
+cibles : **Win64**, **MacOS**, **Android32** et **Android64**.
+
+Le job `package` fusionne ensuite les quatre binaires en **un seul fichier
+`.geode` multi-plateforme**, publié comme artefact du run
+(`ImpossibleLevelsList.geode`) — téléchargeable en bas de la page du run
+dans l'onglet Actions, puis installable directement.
+
+La CI compile contre la version de Geode déclarée dans `mod.json`
+(`"geode": "5.10.1"`) grâce à `sdk: given` : bumper cette valeur suffit
+pour changer de SDK, la CI suit automatiquement.
+
 Pense à :
 - Adapter `mod.json` → `id`, `developer`, `repository` avec tes propres
   infos.
@@ -106,6 +124,7 @@ Pense à :
   le jeu (nécessiterait un chargement de texture réseau supplémentaire). Le
   champ `thumbnailUrl` est récupéré et prêt à être utilisé si tu veux
   ajouter ça.
-- Ce mod n'a pas pu être compilé/testé dans cet environnement (le SDK Geode
-  et Geometry Dash ne sont pas disponibles ici) — teste-le en jeu et
-  ajuste au besoin en suivant la section ci-dessus.
+- La compilation est vérifiée automatiquement par la CI (Win64, MacOS,
+  Android32/64), mais le mod n'a pas été testé **en jeu** : récupère
+  l'artefact `.geode` du dernier run, installe-le, et ajuste le parsing de
+  l'API en suivant la section ci-dessus si la liste reste vide.

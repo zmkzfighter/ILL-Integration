@@ -4,39 +4,69 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
+
+# Une seule build a la fois par branche : un nouveau push annule la precedente.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - name: Win64
+        config:
+          - name: Windows
+            os: windows-latest
             target: Win64
-            runs-on: windows-latest
 
-          - name: MacOS
+          - name: macOS
+            os: macos-latest
             target: MacOS
-            runs-on: macos-latest
 
-    name: Build (${{ matrix.name }})
-    runs-on: ${{ matrix.runs-on }}
+          - name: Android32
+            os: ubuntu-latest
+            target: Android32
+
+          - name: Android64
+            os: ubuntu-latest
+            target: Android64
+
+    name: Build (${{ matrix.config.name }})
+    runs-on: ${{ matrix.config.os }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
 
       - name: Build the mod
         uses: geode-sdk/build-geode-mod@main
-        id: build
         with:
-          target: ${{ matrix.target }}
-          sdk: latest
+          target: ${{ matrix.config.target }}
+          # 'given' = la version de Geode declaree dans mod.json (5.10.1),
+          # pour que la CI compile exactement contre ce que le mod annonce.
+          sdk: given
+          # Necessaire pour que le job 'package' puisse fusionner les
+          # binaires des differentes plateformes en un seul .geode.
+          combine: true
+
+  package:
+    name: Package (.geode multi-plateforme)
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Combine the builds
+        uses: geode-sdk/build-geode-mod/combine@main
+        id: build
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: ImpossibleLevelsGeode-${{ matrix.name }}
+          name: ImpossibleLevelsList.geode
           path: ${{ steps.build.outputs.build-output }}
