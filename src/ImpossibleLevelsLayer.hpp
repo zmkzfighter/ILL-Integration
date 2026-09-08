@@ -15,12 +15,15 @@ protected:
     int m_minRank = 0;
     int m_maxRank = 0;
     ill::SortMode m_sort = ill::SortMode::Rank;
+    int m_page = 0;                      // page courante, 0 = premiere
 
     geode::ScrollLayer* m_scrollLayer = nullptr;
     geode::TextInput* m_searchInput = nullptr;
     cocos2d::CCMenu* m_tabMenu = nullptr;
     cocos2d::extension::CCScale9Sprite* m_loadingBg = nullptr;
     cocos2d::CCLabelBMFont* m_statusLabel = nullptr;
+    cocos2d::CCLabelBMFont* m_pageLabel = nullptr;
+    ButtonSprite* m_sortSprite = nullptr;
 
     int m_pendingLoadLevelID = 0;
 
@@ -34,6 +37,9 @@ protected:
     void onRefresh(cocos2d::CCObject*);
     void onFilters(cocos2d::CCObject*);
     void onOpenWebsite(cocos2d::CCObject*);
+    void onPrevPage(cocos2d::CCObject*);
+    void onNextPage(cocos2d::CCObject*);
+    void onCycleSort(cocos2d::CCObject*);
 
     void requestPlayLevel(ill::ImpossibleLevel const& level);
     void requestOpenShowcase(ill::ImpossibleLevel const& level);

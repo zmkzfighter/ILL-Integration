@@ -2,6 +2,7 @@
 
 #include <Geode/Geode.hpp>
 #include "ImpossibleLevelsAPI.hpp"
+#include "ThumbnailCache.hpp"
 
 // Une cellule représentant un niveau dans la liste (mode normal ou "featured"
 // pour les blocs Nouveautés semaine/mois, plus grands et mis en valeur).
@@ -13,6 +14,7 @@ protected:
     std::function<void(ill::ImpossibleLevel const&)> m_onShowcase;
 
     bool init(ill::ImpossibleLevel const& level, bool featured, float width, float height);
+    void setupThumbnail(float x, float w, float h);
 
     void onPlay(cocos2d::CCObject*);
     void onShowcase(cocos2d::CCObject*);
