@@ -8,20 +8,19 @@
 	},
 	"version": "1.0.0",
 	"id": "zmkzfighter.ill-integration",
-	"name": "Impossible Levels List",
+	"name": "ILL-Integration",
 	"developers": ["zmkzfighter"],
 	"description": "Parcours et charge directement les niveaux de l'Impossible Levels List (impossiblelevels.com) depuis le jeu, avec mise en avant des nouveautes de la semaine et du mois.",
 	"links": {
 		"source": "https://github.com/zmkzfighter/ILL-Integration"
 	},
 	"tags": ["content", "utility", "interface"],
-	"dependencies": [
-		{
-			"id": "geode.node-ids",
+	"dependencies": {
+		"geode.node-ids": {
 			"version": ">=v1.20.0",
-			"importance": "required"
+			"required": true
 		}
-	],
+	},
 	"settings": {
 		"api-base-url": {
 			"name": "URL de base de l'API",
