@@ -1,0 +1,22 @@
+# Sorties de build
+build/
+build-*/
+out/
+*.geode
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+CMakeUserPresets.json
+cmake-build-*/
+
+# Caches de la CI / du CLI Geode
+cpm-cache/
+geode-deps/
+geode-sdk-clone/
+
+# Editeurs / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

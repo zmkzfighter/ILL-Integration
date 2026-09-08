@@ -15,6 +15,14 @@ file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp")
 
 add_library(${PROJECT_NAME} SHARED ${SOURCES})
 
+# Sur Windows, Geode force-inclut un PCH avant le contenu de nos .cpp : un
+# `#define _CRT_SECURE_NO_WARNINGS` en tete de fichier arrive donc trop tard.
+# Il faut le definir au niveau de la cible pour faire taire les avertissements
+# de depreciation MSVC (sscanf & co).
+if (WIN32)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE _CRT_SECURE_NO_WARNINGS)
+endif()
+
 if (NOT DEFINED ENV{GEODE_SDK})
     message(FATAL_ERROR "Impossible de trouver le SDK Geode. Installe le CLI Geode et fais `geode sdk install`.")
 else()

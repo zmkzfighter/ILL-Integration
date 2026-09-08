@@ -1,4 +1,5 @@
-#define _CRT_SECURE_NO_WARNINGS
+// _CRT_SECURE_NO_WARNINGS est defini dans CMakeLists.txt (le PCH de Geode
+// est force-inclut avant ce fichier, un #define ici serait sans effet).
 #include "ImpossibleLevelsAPI.hpp"
 #include <Geode/utils/async.hpp>
 #include <Geode/loader/Mod.hpp>
@@ -224,7 +225,13 @@ namespace ill {
 
             std::vector<ImpossibleLevel> parsed;
             parsed.reserve(arrPtr->size());
-            for (auto& entry : arrPtr->asArray().unwrapOrDefault()) {
+            // matjson::Value expose directement begin()/end() sur les
+            // elements d'un tableau. On passe par la plutot que par
+            // asArray(), dont le Result contient une *reference*
+            // (std::vector<Value> const&) : unwrapOrDefault() ne compile pas
+            // sur un type reference (contrainte default_initializable).
+            // arrPtr a deja ete valide par isArray() plus haut.
+            for (auto const& entry : *arrPtr) {
                 parsed.push_back(ImpossibleLevel::fromJson(entry));
             }
 
