@@ -34,7 +34,7 @@ protected:
 
     void onBack(cocos2d::CCObject*);
     void keyBackClicked() override;
-    void keyDown(cocos2d::enumKeyCodes key) override;
+    void keyDown(cocos2d::enumKeyCodes key, double repeatDelay) override;
     void onExit() override;
     void onSearchDebounced(float dt);
     void updateTabVisuals();

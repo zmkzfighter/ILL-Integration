@@ -373,10 +373,10 @@ void ImpossibleLevelsLayer::onExit() {
 }
 
 // Fleches gauche / droite pour changer de page.
-void ImpossibleLevelsLayer::keyDown(cocos2d::enumKeyCodes key) {
+void ImpossibleLevelsLayer::keyDown(cocos2d::enumKeyCodes key, double repeatDelay) {
     if (key == cocos2d::enumKeyCodes::KEY_Left)  { this->onPrevPage(nullptr); return; }
     if (key == cocos2d::enumKeyCodes::KEY_Right) { this->onNextPage(nullptr); return; }
-    CCLayer::keyDown(key);
+    CCLayer::keyDown(key, repeatDelay);
 }
 
 void ImpossibleLevelsLayer::onTab(cocos2d::CCObject* sender) {
